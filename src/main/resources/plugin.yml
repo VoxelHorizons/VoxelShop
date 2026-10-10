@@ -1,0 +1,16 @@
+name: VoxelShop
+version: ${project.version}
+main: org.voxelhorizons.shop.VoxelShop
+api-version: '26.2'
+description: Independent multi-currency dynamic shop for VoxelHorizons
+softdepend: [Vault, PlaceholderAPI, VoxelCore]
+commands:
+  vshop:
+    description: Opens VoxelShop
+    aliases: [shop]
+    permission: voxelshop.use
+permissions:
+  voxelshop.use:
+    default: true
+  voxelshop.admin:
+    default: op
