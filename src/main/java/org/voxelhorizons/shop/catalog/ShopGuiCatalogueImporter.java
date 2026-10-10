@@ -114,13 +114,21 @@ public final class ShopGuiCatalogueImporter {
                         .stripTrailingZeros();
                 if (pricePerUnit.signum() <= 0)
                     throw new IOException("Calculated market price is zero at " + where);
+                // Preserve each legacy offer's initial sell-to-buy ratio.
+                // Ratios are bounded below 1.0 to prevent baseline round-trip inflation.
+                BigDecimal sellRatio = sell.divide(buy, 12, RoundingMode.HALF_UP);
+                if (sellRatio.signum() <= 0 || sellRatio.compareTo(BigDecimal.ONE) >= 0)
+                    throw new IOException("Unsafe or disabled sell ratio at " + where);
                 MarketDefinition current = markets.get(marketId);
                 if (current == null) {
                     markets.put(marketId, new MarketDefinition(marketId, currency, pricePerUnit,
-                            targetStock, targetStock, capacity));
-                } else if (current.basePrice().compareTo(pricePerUnit) != 0) {
+                            targetStock, targetStock, capacity, sellRatio));
+                } else if (current.basePrice().compareTo(pricePerUnit) != 0
+                        || current.sellRatioOverride().compareTo(sellRatio) != 0) {
                     throw new IOException("Conflicting baseline for global market " + marketId
-                            + " in " + where + ": " + current.basePrice() + " vs " + pricePerUnit);
+                            + " in " + where + ": buy " + current.basePrice()
+                            + " / sell ratio " + current.sellRatioOverride()
+                            + " vs buy " + pricePerUnit + " / sell ratio " + sellRatio);
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
                         quantity, page, slot, buy, sell, marketId));
