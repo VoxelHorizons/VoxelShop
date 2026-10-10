@@ -62,9 +62,9 @@ class ShopGuiCatalogueImporterTest {
         assertEquals("coins", result.shops().get("mixed").currency());
         assertEquals(2, result.markets().size());
         assertEquals("coins", result.markets().get("minecraft:diamond").currency());
-        assertEquals("cosmetics", result.markets().get("cosmetics|minecraft:diamond").currency());
-        assertEquals(new BigDecimal("30"), result.markets().get("cosmetics|minecraft:diamond").basePrice());
-        assertEquals("cosmetics|minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
+        assertEquals("cosmetics", result.markets().get("cosmetics:minecraft:diamond").currency());
+        assertEquals(new BigDecimal("30"), result.markets().get("cosmetics:minecraft:diamond").basePrice());
+        assertEquals("cosmetics:minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
     }
 
     @Test void rejectsConflictingPricesForSharedMarkets() throws Exception {
