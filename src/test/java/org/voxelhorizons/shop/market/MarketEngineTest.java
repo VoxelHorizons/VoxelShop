@@ -59,8 +59,11 @@ class MarketEngineTest {
 
     @Test void rejectsOverflowCapacityAndUnsafeSettings() {
         MarketEngine engine = engine();
+        MarketEngine nearlyFull = new MarketEngine(MarketPolicy.defaults());
+        nearlyFull.register(new MarketDefinition("minecraft:oak_log", "voxel:coins",
+                new BigDecimal("10.00"), 1000, 1990, 2000));
         assertThrows(IllegalStateException.class, () ->
-                engine.quote("minecraft:oak_log", MarketQuote.Side.SELL, 1200));
+                nearlyFull.quote("minecraft:oak_log", MarketQuote.Side.SELL, 11));
         assertThrows(IllegalArgumentException.class, () ->
                 new MarketPolicy(BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE,
                         new BigDecimal("0.15"), 64, 2));
