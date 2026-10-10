@@ -1,5 +1,5 @@
 name: VoxelShop
-version: ${project.version}
+version: 0.1.0-SNAPSHOT
 main: org.voxelhorizons.shop.VoxelShop
 api-version: '26.2'
 description: Independent multi-currency dynamic shop for VoxelHorizons
