@@ -98,8 +98,8 @@ public final class ShopMenus implements Listener {
             lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD + offer.baselineBuy());
             lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD + offer.baselineSell());
             try {
-                MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, 1);
-                MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, 1);
+                MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
+                MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity());
                 lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + buy.total().toPlainString()
                         + " " + buy.currency());
                 lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + sell.total().toPlainString()
