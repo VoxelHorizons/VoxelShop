@@ -63,7 +63,7 @@ class ShopGuiCatalogueImporterTest {
         assertEquals(2, result.markets().size());
         assertEquals("voxel:coins", result.markets().get("minecraft:diamond").currency());
         assertEquals("voxel:cosmetics", result.markets().get("voxel:cosmetics:minecraft:diamond").currency());
-        assertEquals(new BigDecimal("30"), result.markets().get("voxel:cosmetics:minecraft:diamond").basePrice());
+        assertEquals(0, new BigDecimal("30").compareTo(result.markets().get("voxel:cosmetics:minecraft:diamond").basePrice()));
         assertEquals("voxel:cosmetics:minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
     }
 
@@ -95,7 +95,7 @@ class ShopGuiCatalogueImporterTest {
         write("two.yml", "two:\n  items:\n"
                 + "    1: {type: item, item: {material: OAK_LOG}, buyPrice: 11, sellPrice: 1, slot: 10}\n");
         IOException ex = assertThrows(IOException.class, this::importShops);
-        assertTrue(ex.getMessage().contains("Conflicting baseline"));
+        assertTrue(ex.getMessage().contains("Conflicting buy baseline"));
     }
 
     @Test void rejectsDuplicateKeysOrOverlappingSlots() throws Exception {
