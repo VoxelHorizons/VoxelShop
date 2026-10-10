@@ -11,9 +11,20 @@ public final class MarketDefinition {
     private final int targetStock;
     private final int initialStock;
     private final int stockCapacity;
+    private final BigDecimal sellRatioOverride;
 
     public MarketDefinition(String id, String currency, BigDecimal basePrice,
                             int targetStock, int initialStock, int stockCapacity) {
+        this(id, currency, basePrice, targetStock, initialStock, stockCapacity, null);
+    }
+
+    public MarketDefinition(String id, String currency, BigDecimal basePrice,
+                            int targetStock, int initialStock, int stockCapacity,
+                            BigDecimal sellRatioOverride) {
+        if (sellRatioOverride != null && (sellRatioOverride.signum() <= 0
+                || sellRatioOverride.compareTo(BigDecimal.ONE) >= 0))
+            throw new IllegalArgumentException("Invalid market sell ratio");
+        this.sellRatioOverride = sellRatioOverride;
         this.id = Objects.requireNonNull(id, "id");
         this.currency = Objects.requireNonNull(currency, "currency");
         this.basePrice = Objects.requireNonNull(basePrice, "basePrice");
@@ -34,4 +45,5 @@ public final class MarketDefinition {
     public int targetStock() { return targetStock; }
     public int initialStock() { return initialStock; }
     public int stockCapacity() { return stockCapacity; }
+    public BigDecimal sellRatioOverride() { return sellRatioOverride; }
 }
