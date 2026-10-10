@@ -52,7 +52,7 @@ public final class VoxelShop extends JavaPlugin {
         // Import user-authored ShopGUIPlus YAML. Does not copy the original plugin code.
         Path source = getDataFolder().toPath().resolve("shops");
         if (!Files.isDirectory(source))
-            source = getServer().getWorldContainer().toPath().resolve("plugins").resolve("ShopGUIPlus").resolve("shops");
+            source = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "shops");
         if (!Files.isDirectory(source))
             throw new IllegalStateException("Missing shop YAML. Copy ShopGUIPlus/shops/*.yml into plugins/VoxelShop/shops/");
 
