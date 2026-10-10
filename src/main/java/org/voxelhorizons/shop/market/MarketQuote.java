@@ -15,15 +15,17 @@ public final class MarketQuote {
     private final int quantity;
     private final long revision;
     private final BigDecimal total;
+    private final BigDecimal offerSellRatio;
 
     MarketQuote(String marketId, String currency, Side side,
-                int quantity, long revision, BigDecimal total) {
+                int quantity, long revision, BigDecimal total, BigDecimal offerSellRatio) {
         this.marketId = Objects.requireNonNull(marketId);
         this.currency = Objects.requireNonNull(currency);
         this.side = Objects.requireNonNull(side);
         this.quantity = quantity;
         this.revision = revision;
         this.total = Objects.requireNonNull(total);
+        this.offerSellRatio = offerSellRatio;
     }
 
     public String marketId() { return marketId; }
@@ -32,4 +34,5 @@ public final class MarketQuote {
     public int quantity() { return quantity; }
     public long revision() { return revision; }
     public BigDecimal total() { return total; }
+    public BigDecimal offerSellRatio() { return offerSellRatio; }
 }
