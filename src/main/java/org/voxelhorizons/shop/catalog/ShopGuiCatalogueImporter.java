@@ -70,7 +70,7 @@ public final class ShopGuiCatalogueImporter {
             if (!shopId.matches("[a-z0-9_-]+") || shops.containsKey(shopId))
                 throw new IOException("Duplicate or invalid shop ID: " + shopId);
             Map<?, ?> definition = mapping(named.getValue(), source + ": " + shopId);
-            String title = String.valueOf(definition.getOrDefault("name", shopId));
+            String title = String.valueOf(definition.containsKey("name") ? definition.get("name") : shopId);
             Map<?, ?> filler = definition.containsKey("fillItem") ?
                     mapping(definition.get("fillItem"), shopId + ".fillItem") : java.util.Collections.emptyMap();
             String fillerMaterial = String.valueOf(filler.containsKey("material") ? filler.get("material") : "AIR");
