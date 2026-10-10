@@ -54,9 +54,10 @@ public final class ImportedCatalog {
         private final BigDecimal baselineBuy;
         private final BigDecimal baselineSell;
         private final String marketId;
+        private final BigDecimal sellRatio;
 
         Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
-              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId) {
+              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio) {
             this.id = id;
             this.type = type;
             this.materialOrSpecial = materialOrSpecial;
@@ -66,6 +67,7 @@ public final class ImportedCatalog {
             this.baselineBuy = baselineBuy;
             this.baselineSell = baselineSell;
             this.marketId = marketId;
+            this.sellRatio = sellRatio;
         }
         public String id() { return id; }
         public String type() { return type; }
@@ -76,5 +78,6 @@ public final class ImportedCatalog {
         public BigDecimal baselineBuy() { return baselineBuy; }
         public BigDecimal baselineSell() { return baselineSell; }
         public String marketId() { return marketId; }
+        public BigDecimal sellRatio() { return sellRatio; }
     }
 }
