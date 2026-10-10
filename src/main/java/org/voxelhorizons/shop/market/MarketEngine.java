@@ -32,7 +32,16 @@ public final class MarketEngine {
     }
 
     public synchronized MarketQuote quote(String marketId, MarketQuote.Side side, int quantity) {
+        return quote(marketId, side, quantity, null);
+    }
+
+    /** A shop can have an independently configured margin on one shared supply market. */
+    public synchronized MarketQuote quote(String marketId, MarketQuote.Side side, int quantity,
+                                           BigDecimal offerSellRatio) {
         State state = require(marketId);
+        if (offerSellRatio != null && (offerSellRatio.signum() <= 0
+                || offerSellRatio.compareTo(BigDecimal.ONE) >= 0))
+            throw new IllegalArgumentException("Unsafe offer sell ratio");
         Objects.requireNonNull(side, "side");
         if (quantity < 1 || quantity > policy.maxOrder()) {
             throw new IllegalArgumentException("Order quantity is outside configured bounds");
@@ -52,7 +61,8 @@ public final class MarketEngine {
                     ? state.stock - i : (long) state.stock + i + 1;
             BigDecimal price = marginalPrice(state.definition, marginalStock);
             if (side == MarketQuote.Side.SELL) {
-                BigDecimal sellRatio = state.definition.sellRatioOverride() == null
+                BigDecimal sellRatio = offerSellRatio != null ? offerSellRatio
+                        : state.definition.sellRatioOverride() == null
                         ? policy.sellRatio() : state.definition.sellRatioOverride();
                 price = price.multiply(sellRatio, MATH);
             }
@@ -63,7 +73,7 @@ public final class MarketEngine {
         total = total.setScale(policy.priceScale(), rounding);
         if (total.signum() <= 0) throw new IllegalStateException("Order rounds to zero");
         return new MarketQuote(marketId, state.definition.currency(), side,
-                quantity, state.revision, total);
+                quantity, state.revision, total, offerSellRatio);
     }
 
     public synchronized boolean isCurrent(MarketQuote quote) {
@@ -71,7 +81,7 @@ public final class MarketEngine {
         State state = markets.get(quote.marketId());
         return state != null && state.revision == quote.revision()
                 && state.definition.currency().equals(quote.currency())
-                && quote.total().equals(quote(quote.marketId(), quote.side(), quote.quantity()).total());
+                && quote.total().equals(quote(quote.marketId(), quote.side(), quote.quantity(), quote.offerSellRatio()).total());
     }
 
     /**
