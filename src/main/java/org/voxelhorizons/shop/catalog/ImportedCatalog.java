@@ -23,19 +23,22 @@ public final class ImportedCatalog {
     public static final class Shop {
         private final String id;
         private final String title;
+        private final String currency;
         private final String fillerMaterial;
         private final String fillerName;
         private final List<Offer> offers;
 
-        Shop(String id, String title, String fillerMaterial, String fillerName, List<Offer> offers) {
+        Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers) {
             this.id = id;
             this.title = title;
+            this.currency = currency;
             this.fillerMaterial = fillerMaterial;
             this.fillerName = fillerName;
             this.offers = Collections.unmodifiableList(new ArrayList<>(offers));
         }
         public String id() { return id; }
         public String title() { return title; }
+        public String currency() { return currency; }
         public String fillerMaterial() { return fillerMaterial; }
         public String fillerName() { return fillerName; }
         public List<Offer> offers() { return offers; }
