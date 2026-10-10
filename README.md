@@ -74,8 +74,8 @@ In the supplied private configuration snapshot, this structure accounts for 8 sh
 
 ## Architecture
 
-- **VoxelCore Economy** (separate upcoming VoxelCore work): owns authoritative player balances, named currencies (`voxel:coins`, `voxel:cosmetics`), audit ledger, transaction idempotency, optional external economy adapters, database durability and integration APIs.
-- **VoxelShop**: manages shop catalogues, permissions, GUIs, inventory checks, pricing, quotes, and trade workflows. It must use VoxelCore economy transactions via a stable public API, not reach into implementation classes.
+- **VaultUnlocked economy integration**: use VaultUnlockedAPI's `net.milkbowl.vault2.economy.Economy` to communicate with an installed compatible economy provider. VaultUnlocked exposes named currencies; the backing economy plugin, not VoxelCore or VoxelShop, owns player balances and persistence.
+- **VoxelShop**: manages shop catalogues, permissions, GUIs, inventory checks, pricing, quotes, and trade workflows. It must integrate with VaultUnlocked's modern multi-currency API through a provider adapter and never reach directly into a specific currency plugin's storage.
 - **Market state**: per item and currency, with stock, stock target, capacity, revision and base value. Both shop buy and sell move supply and affect the next quote.
 - **Safety**: amounts use BigDecimal, with separate rounding for purchases and payouts; stock and order sizes are bounded; quote revisions detect changes between GUI display and click.
 
@@ -127,7 +127,7 @@ markets:
 1. Validate the player, permissions, shop/item identity, stock, economic balance, inventory space, item metadata and amount. Ignore client-submitted prices entirely.
 2. Recompute the quote at commit time with the current market revision and current price configuration. A GUI's displayed price is only informational.
 3. Serialize conflicting trades; no re-entrant buy/sell operations, double-clicks, shift-click exploits or concurrent duplicate orders.
-4. Use durable transaction IDs and a persisted operation journal; the wallet must guarantee idempotent debit/credit. External providers with no idempotency need an explicit recovery strategy.
+4. Use durable transaction IDs and a persisted operation journal; VaultUnlocked's standard debit/credit calls do not carry a transaction idempotency key; the coordinator must record durable state, reconcile ambiguous outcomes and refuse unsafe automatic retries.
 5. Coordinate the wallet debit/credit, market stock, and inventory transfer with a recoverable state machine. Never credit money without permanently receiving the sold items. Never deliver items without permanently recording the debit.
 6. Roll back or reconcile incomplete trades after restart; define fail-closed behaviour for downtime and unsafe inventory events.
 7. Reject invalid, non-finite, negative, overly precise or overflowing monetary amounts. Reject NBT/component substitutions, creative inventory injection, mismatched item identities and unsupported custom items.
@@ -143,6 +143,6 @@ Dynamic values must be tied to each *market and currency*, not overwritten in th
 ## Phases
 
 - Phase 1: this PR — pure Java pricing and currency interface, regression tests, independent architecture.
-- Phase 2: VoxelCore public economy service: multi-currency wallets, ledgers, idempotent transaction API, persistence and providers.
+- Phase 2: VaultUnlocked 2.x (`vault2`) currency provider adapter and independently implemented Paper shop GUI; integrate with an installed multi-currency backend.
 - Phase 3: VoxelShop YAML importer and Paper inventory UI with server-authoritative buy/sell and async-safe persistence.
 - Phase 4: protections/optimizations, compatibility with existing shop layouts, custom VoxelCore items, economy simulation and benchmark suites.
