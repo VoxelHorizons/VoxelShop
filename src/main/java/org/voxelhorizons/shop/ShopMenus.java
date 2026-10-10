@@ -142,11 +142,12 @@ public final class ShopMenus implements Listener {
         Holder holder = (Holder) event.getView().getTopInventory().getHolder();
         int slot = event.getRawSlot();
         if (holder.categoryClicks.containsKey(slot)) {
-            openShop(player, holder.categoryClicks.get(slot), 1);
+            String destination = holder.categoryClicks.get(slot);
+            Bukkit.getScheduler().runTask(plugin, () -> openShop(player, destination, 1));
         } else if (holder.navigation.containsKey(slot)) {
             int step = holder.navigation.get(slot);
-            if (step == 0) openCategories(player);
-            else openShop(player, holder.shop, holder.page + step);
+            if (step == 0) Bukkit.getScheduler().runTask(plugin, () -> openCategories(player));
+            else Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page + step));
         } else if (holder.offerClicks.containsKey(slot)) {
             player.sendMessage(ChatColor.YELLOW + "VoxelShop is running in preview mode. "
                     + "Trading will be enabled only after the transaction-safety layer is complete.");
