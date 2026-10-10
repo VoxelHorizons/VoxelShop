@@ -120,7 +120,7 @@ public final class ShopGuiCatalogueImporter {
                 String materialId = "minecraft:" + material.toLowerCase(Locale.ROOT);
                 // Keep the historical ID for default currency while separating
                 // independent supply/price markets for alternative currencies.
-                String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + "|" + materialId;
+                String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
                 BigDecimal pricePerUnit = buy.divide(BigDecimal.valueOf(quantity), 8, RoundingMode.HALF_UP)
                         .stripTrailingZeros();
                 if (pricePerUnit.signum() <= 0)
