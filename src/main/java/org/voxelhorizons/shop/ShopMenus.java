@@ -78,7 +78,7 @@ public final class ShopMenus implements Listener {
                 if ("balance".equalsIgnoreCase(offer.materialOrSpecial())) {
                     List<String> lore = new ArrayList<>();
                     try {
-                        String currency = plugin.getConfig().getString("economy.default-currency", "coins");
+                        String currency = shop.currency();
                         BigDecimal balance = plugin.economy().balance(player, currency);
                         lore.add(ChatColor.WHITE + balance.toPlainString() + " " + currency);
                     } catch (Exception exception) {
