@@ -52,7 +52,9 @@ public final class MarketEngine {
                     ? state.stock - i : (long) state.stock + i + 1;
             BigDecimal price = marginalPrice(state.definition, marginalStock);
             if (side == MarketQuote.Side.SELL) {
-                price = price.multiply(policy.sellRatio(), MATH);
+                BigDecimal sellRatio = state.definition.sellRatioOverride() == null
+                        ? policy.sellRatio() : state.definition.sellRatioOverride();
+                price = price.multiply(sellRatio, MATH);
             }
             total = total.add(price, MATH);
         }
