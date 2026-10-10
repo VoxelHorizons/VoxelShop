@@ -54,17 +54,17 @@ class ShopGuiCatalogueImporterTest {
 
     @Test void supportsPerShopAndPerOfferVaultUnlockedCurrencies() throws Exception {
         write("mixed.yml", "mixed:\n"
-                + "  currency: coins\n"
+                + "  currency: voxel:coins\n"
                 + "  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 200, sellPrice: 10, slot: 10}\n"
-                + "    2: {type: item, item: {material: DIAMOND}, currency: cosmetics, buyPrice: 30, sellPrice: 3, slot: 11}\n");
+                + "    2: {type: item, item: {material: DIAMOND}, currency: voxel:cosmetics, buyPrice: 30, sellPrice: 3, slot: 11}\n");
         ImportedCatalog result = importShops();
-        assertEquals("coins", result.shops().get("mixed").currency());
+        assertEquals("voxel:coins", result.shops().get("mixed").currency());
         assertEquals(2, result.markets().size());
-        assertEquals("coins", result.markets().get("minecraft:diamond").currency());
-        assertEquals("cosmetics", result.markets().get("cosmetics:minecraft:diamond").currency());
-        assertEquals(new BigDecimal("30"), result.markets().get("cosmetics:minecraft:diamond").basePrice());
-        assertEquals("cosmetics:minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
+        assertEquals("voxel:coins", result.markets().get("minecraft:diamond").currency());
+        assertEquals("voxel:cosmetics", result.markets().get("voxel:cosmetics:minecraft:diamond").currency());
+        assertEquals(new BigDecimal("30"), result.markets().get("voxel:cosmetics:minecraft:diamond").basePrice());
+        assertEquals("voxel:cosmetics:minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
     }
 
     @Test void rejectsConflictingPricesForSharedMarkets() throws Exception {
