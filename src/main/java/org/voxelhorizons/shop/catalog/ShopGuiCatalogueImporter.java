@@ -34,7 +34,7 @@ public final class ShopGuiCatalogueImporter {
     public static ImportedCatalog read(Path directory, String currency, int targetStock, int capacity) throws IOException {
         Objects.requireNonNull(directory, "directory");
         if (!Files.isDirectory(directory)) throw new IOException("Missing shop configuration directory: " + directory);
-        if (currency == null || !currency.matches("[a-z0-9._-]+:[a-z0-9._-]+"))
+        if (currency == null || !currency.matches("[a-z0-9_.:-]+"))
             throw new IllegalArgumentException("Invalid currency ID");
         if (targetStock < 1 || capacity < targetStock)
             throw new IllegalArgumentException("Invalid market stock targets");
@@ -96,7 +96,7 @@ public final class ShopGuiCatalogueImporter {
                     throw new IOException("Duplicate page/slot " + page + ":" + slot + " in shop " + shopId);
                 if ("special".equals(type)) {
                     offers.add(new ImportedCatalog.Offer(offerId, type,
-                            String.valueOf(item.get("special")), 0, page, slot, null, null, null));
+                            String.valueOf(item.get("special")), 0, page, slot, null, null, null, null));
                     continue;
                 }
                 if (!"item".equals(type))
@@ -134,15 +134,14 @@ public final class ShopGuiCatalogueImporter {
                 if (current == null) {
                     markets.put(marketId, new MarketDefinition(marketId, itemCurrency, pricePerUnit,
                             targetStock, targetStock, capacity, sellRatio));
-                } else if (current.basePrice().compareTo(pricePerUnit) != 0
-                        || current.sellRatioOverride().compareTo(sellRatio) != 0) {
-                    throw new IOException("Conflicting baseline for global market " + marketId
-                            + " in " + where + ": buy " + current.basePrice()
-                            + " / sell ratio " + current.sellRatioOverride()
-                            + " vs buy " + pricePerUnit + " / sell ratio " + sellRatio);
+                } else if (current.basePrice().compareTo(pricePerUnit) != 0) {
+                    // A single material can have the same buy price but a different
+                    // per-shop sell margin. Stock remains shared; sell margin does not.
+                    throw new IOException("Conflicting buy baseline for global market " + marketId
+                            + " in " + where + ": " + current.basePrice() + " vs " + pricePerUnit);
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
-                        quantity, page, slot, buy, sell, marketId));
+                        quantity, page, slot, buy, sell, marketId, sellRatio));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
                     fillerMaterial, fillerName, offers));
