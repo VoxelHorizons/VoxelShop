@@ -8,6 +8,16 @@ This PR contains the Java market calculator, quote/revision API, currency-provid
 
 The supplied ShopGUIPlus 1.113.0 JAR and private configuration ZIP were examined locally for interface and behaviour inventory only. They are not part of this repository.
 
+## Phase 1b: ShopGUIPlus configuration import (stacked PR)
+
+The independent `ShopGuiCatalogueImporter.read(directory, currencyId, targetStock, capacity)` reads ordinary ShopGUIPlus-style shop YAML files into immutable catalogue layouts plus deduplicated global `MarketDefinition` seeds. It preserves custom menu-title Unicode/glyph placeholders, slot, page, fill-item styling, per-offer original buy/sell values and special `balance` display items.
+
+The importer **does not** transfer player data, pay money, change inventory, or write migrated files yet. It validates duplicate YAML keys, overlapping slots, unknown offer types and conflicting baseline prices for the same material. It deliberately refuses free, disabled or malformed prices rather than silently changing gameplay. `worth.yml` is excluded; separately importing `worth.yml` needs a distinct valuation policy.
+
+In the supplied private configuration snapshot, this structure accounts for 8 shop categories, 249 regular offers, 5 special entries and 247 unique material market IDs. No proprietary JAR or private config is committed to this repository.
+
+`MarketDefinition` seeds are derived from each offer's initial buy price divided by its quantity; actual **live** prices will later come from market stock and VoxelCore currency balances. Currency conversion is never inferred from Vault/EXP.
+
 ## Architecture
 
 - **VoxelCore Economy** (separate upcoming VoxelCore work): owns authoritative player balances, named currencies (`voxel:coins`, `voxel:cosmetics`), audit ledger, transaction idempotency, optional external economy adapters, database durability and integration APIs.
