@@ -7,9 +7,19 @@ softdepend: [Vault, PlaceholderAPI, VoxelCore]
 commands:
   vshop:
     description: Opens VoxelShop
-    aliases: [shop]
+    aliases: [shop, shopgui, guishop]
+    permission: voxelshop.use
+  sell:
+    description: Sell the held item or ordinary inventory items
+    aliases: [ssell]
     permission: voxelshop.use
 permissions:
+  voxelshop.sell.hand:
+    default: true
+  voxelshop.sell.handall:
+    default: true
+  voxelshop.sell.all:
+    default: true
   voxelshop.use:
     default: true
   voxelshop.admin:

@@ -58,5 +58,13 @@ inventory-full cases, restart and forced termination between every journal
 phase, plugin reloads, high-volume trade queues, and item metadata spoofing.
 Review craft/smelt arbitrage and dynamic price parameters. There is not yet
 a full ShopGUIPlus API compatibility layer, VoxelCore custom-item trading,
-per-player price modifiers, player-facing `/sell` commands or an automated
+per-player price modifiers, full-featured selling of custom items or an automated
 provider-specific recovery processor.
+
+## Sell command compatibility
+
+`/sell hand [quantity]`, `/sell handall`, and `/sell all` sell exact unmodified
+vanilla stacks only. Sales select the highest current SELL quote among offers
+in accessible shops denominated in `economy.default-currency`; this does not
+implicitly exchange tokens or cosmetics. Multi-stack commands intentionally cap
+work at eight trade operations per invocation to avoid long main-thread pauses.

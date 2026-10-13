@@ -51,6 +51,8 @@ public final class VoxelShop extends JavaPlugin {
         ShopCommand handler = new ShopCommand(this);
         command.setExecutor(handler);
         command.setTabCompleter(handler);
+        PluginCommand sellCommand = getCommand("sell");
+        if (sellCommand != null) sellCommand.setExecutor(new SellCommand(this));
 
         if (!economy.available())
             getLogger().warning("No VaultUnlocked vault2 Economy provider found: shop browsing works, trading is disabled.");
