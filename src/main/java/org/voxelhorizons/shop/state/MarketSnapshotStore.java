@@ -104,10 +104,21 @@ public final class MarketSnapshotStore {
         }
     }
 
-    /** Persist the directory entry as well as the file bytes on Linux. */
+    /**
+     * Flush the parent directory after atomic file replacement where Java's
+     * filesystem provider supports opening directory handles. Windows NTFS
+     * generally disallows Java FileChannel.open(directory), so attempting a
+     * Linux-only directory fsync would lock ALL shop trading on Windows.
+     * We still force the temporary file itself and perform atomic rename.
+     */
     public static void forceDirectory(Path directory) throws IOException {
+        if (!supportsDirectoryForce(System.getProperty("os.name", ""))) return;
         try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
             channel.force(true);
         }
+    }
+
+    static boolean supportsDirectoryForce(String osName) {
+        return osName == null || !osName.toLowerCase(java.util.Locale.ROOT).startsWith("windows");
     }
 }
