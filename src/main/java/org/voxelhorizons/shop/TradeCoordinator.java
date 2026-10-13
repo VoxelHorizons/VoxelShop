@@ -9,6 +9,7 @@ import org.voxelhorizons.shop.catalog.ImportedCatalog;
 import org.voxelhorizons.shop.api.VoxelShopTradePreEvent;
 import org.voxelhorizons.shop.api.VoxelShopTradeCompleteEvent;
 import org.voxelhorizons.shop.market.MarketQuote;
+import org.voxelhorizons.shop.market.MarketRiskGuard;
 import org.voxelhorizons.shop.state.MarketSnapshotStore;
 import org.voxelhorizons.shop.state.TradeJournal;
 
@@ -91,7 +92,7 @@ public final class TradeCoordinator {
         if (largestSellRatio.signum() > 0) {
             BigDecimal purchaseFactor = plugin.priceFactor(player, offer.marketId(), MarketQuote.Side.BUY);
             BigDecimal payoutFactor = plugin.priceFactor(player, offer.marketId(), MarketQuote.Side.SELL);
-            if (largestSellRatio.multiply(payoutFactor).compareTo(purchaseFactor) >= 0)
+            if (MarketRiskGuard.unsafeRoundTrip(purchaseFactor, payoutFactor, largestSellRatio))
                 return "Trade rejected: your market modifiers would allow round-trip arbitrage.";
         }
 
