@@ -99,6 +99,20 @@ public final class VoxelShop extends JavaPlugin {
         int target = getConfig().getInt("market.target-stock", 1000);
         int capacity = getConfig().getInt("market.stock-capacity", 100000);
         ImportedCatalog imported = ShopGuiCatalogueImporter.read(source, currency, target, capacity);
+        // Validate each fully specified vanilla item before saving any market
+        // state or activating trading. Unsupported potion/enchantment/material
+        // templates are rejected rather than silently exchanged as plain items.
+        for (ImportedCatalog.Shop shop : imported.shops().values()) {
+            for (ImportedCatalog.Offer offer : shop.offers()) {
+                if (!"item".equals(offer.type())
+                        || offer.materialOrSpecial().startsWith("voxelcore:")) continue;
+                try { itemFactory.create(offer, offer.quantity()); }
+                catch (RuntimeException invalid) {
+                    throw new IllegalStateException("Invalid shop item template "
+                            + shop.id() + "." + offer.id() + ": " + invalid.getMessage(), invalid);
+                }
+            }
+        }
         PermissionPriceTiers parsedTiers = PermissionPriceTiers.read(
                 getConfig().getConfigurationSection("modifiers.permission-tiers"));
         // Validate dynamic pricing explicitly; never silently fall back from
@@ -116,6 +130,11 @@ public final class VoxelShop extends JavaPlugin {
         // If an earlier state exists, it has been validated before publishing.
         // Initial snapshot is also durable so runtime restarts cannot reroll stock.
         snapshots.save(created, imported.markets());
+        java.util.List<String> orphaned = snapshots.orphanedMarkets(imported.markets());
+        if (!orphaned.isEmpty())
+            getLogger().warning("Preserving " + orphaned.size()
+                    + " inactive historical market(s) in market-state.properties. "
+                    + "Review variants/renames before discarding previous stock: " + orphaned);
         Path menuSource = getDataFolder().toPath().resolve("menus.yml");
         if (!Files.isRegularFile(menuSource))
             menuSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "config.yml");

@@ -154,6 +154,118 @@ class ShopGuiCatalogueImporterTest {
         assertFalse(seller.canBuy());
     }
 
+    @Test void isolatesEnchantedItemMarketFromUnmodifiedVanillaMaterial() throws Exception {
+        write("weapons.yml", "weapons:\n  items:\n"
+                + "    plain: {type: item, item: {material: DIAMOND_SWORD}, buyPrice: 50, sellPrice: 5, slot: 10}\n"
+                + "    premium: {type: item, item: {material: DIAMOND_SWORD, enchantments: ['SHARPNESS:5'], unbreakable: true, name: '&6Excalibur'}, buyPrice: 5000, sellPrice: 500, slot: 11}\n");
+        ImportedCatalog snapshot = importShops();
+        assertEquals(2, snapshot.markets().size());
+        var plain = snapshot.shops().get("weapons").offers().get(0);
+        var premium = snapshot.shops().get("weapons").offers().get(1);
+        assertEquals("minecraft:diamond_sword", plain.marketId());
+        assertNotEquals(plain.marketId(), premium.marketId());
+        assertTrue(premium.marketId().startsWith("minecraft:diamond_sword.meta_"));
+        assertEquals(5, premium.itemMetadata().enchantments().get("SHARPNESS"));
+        assertTrue(premium.itemMetadata().unbreakable());
+        assertEquals("&6Excalibur", premium.itemMetadata().name());
+        assertTrue(plain.itemMetadata().isPlain());
+    }
+
+    @Test void stableIdentityDeduplicatesEquivalentEnchantmentOrder() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    premium: {type: item, item: {material: DIAMOND_PICKAXE, enchantments: ['EFFICIENCY:5', 'UNBREAKING:3']}, buyPrice: 1000, sellPrice: 100, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    premium: {type: item, item: {material: DIAMOND_PICKAXE, enchantments: ['UNBREAKING:3', 'EFFICIENCY:5']}, buyPrice: 1000, sellPrice: 150, slot: 10}\n");
+        var result = importShops();
+        assertEquals(1, result.markets().size());
+        assertEquals(result.shops().get("a").offers().get(0).marketId(),
+                     result.shops().get("b").offers().get(0).marketId());
+    }
+
+    @Test void refusesUnknownComponentInsteadOfDeliveringWrongItem() throws Exception {
+        write("invalid.yml", "invalid:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND, secretItemData: some_value}, buyPrice: 1000, sellPrice: 10, slot: 10}\n");
+        var rejected = assertThrows(IOException.class, this::importShops);
+        assertTrue(rejected.getMessage().contains("Unsupported item metadata key"));
+    }
+
+    @Test void preservesCustomShopSizeButtonsAndPerShopMouseActions() throws Exception {
+        write("compact.yml", "compact:\n"
+                + "  name: 'Compact'\n"
+                + "  size: 27\n"
+                + "  buttons:\n"
+                + "    goBack: {slot: 18, item: {material: NETHER_STAR, name: '&cReturn', lore: ['&7Back']}}\n"
+                + "    previousPage: {slot: -1}\n"
+                + "    nextPage: {slot: 26}\n"
+                + "  clickActions: {LEFT: SELL, RIGHT: BUY_GUI, SHIFT_RIGHT: NONE}\n"
+                + "  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 10}\n");
+        var shop = importShops().shops().get("compact");
+        assertEquals(27, shop.size());
+        assertEquals(18, shop.buttonSlot("goBack", 0));
+        assertEquals("NETHER_STAR", shop.buttonIcon("goBack").material());
+        assertEquals("&cReturn", shop.buttonIcon("goBack").name());
+        assertEquals(java.util.List.of("&7Back"), shop.buttonIcon("goBack").lore());
+        assertEquals(-1, shop.buttonSlot("previousPage", 18));
+        assertEquals("SELL", shop.clickActions().get("LEFT"));
+        assertEquals("BUY_GUI", shop.clickActions().get("RIGHT"));
+    }
+
+    @Test void rejectsOfferOrButtonOutsideCustomInventorySize() throws Exception {
+        write("bad.yml", "bad:\n  size: 18\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 20}\n");
+        assertTrue(assertThrows(IOException.class, this::importShops).getMessage().contains("Invalid GUI page/slot"));
+        write("bad.yml", "bad:\n  size: 18\n  buttons: {goBack: {slot: 30}}\n  items: {}\n");
+        assertTrue(assertThrows(IOException.class, this::importShops).getMessage().contains("Navigation slot"));
+    }
+
+    @Test void legacyEnchantmentAndColorAliasesDoNotCreateDuplicateMarkets() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND_PICKAXE, name: '&6Miner', enchantments: ['DIG_SPEED:5']}, buyPrice: 250, sellPrice: 25, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND_PICKAXE, name: '§6Miner', enchantments: ['EFFICIENCY:5']}, buyPrice: 250, sellPrice: 25, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        assertEquals(catalog.shops().get("a").offers().get(0).marketId(),
+                     catalog.shops().get("b").offers().get(0).marketId());
+    }
+
+    @Test void legacyPerItemPermissionsKeepOldLuckPermsNodes() throws Exception {
+        write("mining.yml", "mining:\n"
+                + "  enablePerItemPermissions: true\n"
+                + "  items:\n"
+                + "    '1': {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 10}\n"
+                + "    '2': {type: item, item: {material: EMERALD}, buyPrice: 90, sellPrice: 9, slot: 11, permission: voxelshop.special.emerald}\n");
+        var offers = importShops().shops().get("mining").offers();
+        assertEquals("shopguiplus.item.mining.1", offers.get(0).permission());
+        assertEquals("voxelshop.special.emerald", offers.get(1).permission());
+    }
+
+    @Test void legacyDamageZeroIsSameMarketAsUnmodifiedItem() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    one: {type: item, item: {material: BREAD, damage: 0}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    one: {type: item, item: {material: BREAD}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        assertTrue(catalog.shops().get("a").offers().get(0).itemMetadata().isPlain());
+    }
+
+    @Test void importsDecorativeDummyButNeverCreatesTradeMarket() throws Exception {
+        write("decor.yml", "decor:\n  enablePerItemPermissions: true\n  items:\n"
+                + "    banner: {type: dummy, item: {material: PAPER, quantity: 1, name: '&bInformation', lore: ['&7Welcome!']}, slot: 13}\n"
+                + "    product: {type: item, item: {material: BREAD}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        var dummy = catalog.shops().get("decor").offers().get(0);
+        assertEquals("dummy", dummy.type());
+        assertFalse(dummy.canBuy());
+        assertFalse(dummy.canSell());
+        assertEquals("shopguiplus.item.decor.banner", dummy.permission());
+        assertNull(dummy.marketId());
+        assertEquals("&bInformation", dummy.itemMetadata().name());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");

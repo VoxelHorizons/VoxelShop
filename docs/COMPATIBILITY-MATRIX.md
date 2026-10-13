@@ -13,21 +13,21 @@ independent implementation with its own API and design.
 | Shop offer buy/sell, shift-click amount GUI | Implemented for supported stack identities | Live purchase/sale, stale quote, inventory full, wallet denial |
 | /sell hand, handall, all | Partial: exact ordinary vanilla items, capped batches | Multi-stack behavior and command parity |
 | Dynamic marginal stock-based pricing | Implemented bounded model | Economy and crafting arbitrage simulation |
-| Persistent market stocks | Implemented with strict definition validation | Kill/restart, filesystem recovery and invalid snapshot |
+| Persistent market stocks | Implemented, preserves orphaned markets and rejects partial active snapshots | Migration/renaming review, kill/restart, filesystem recovery |
 | Legacy Vault and named Vault2 currencies | Implemented with explicit Coins fallback | EssentialsX Coins and VoxelCore tokens side by side |
 | Per-offer original sell margins | Implemented | Same material across multiple category offers |
 | Item providers / custom items | Partial: exact VoxelCore templates | Modifiable tints, non-VoxelCore items, provider reloads |
-| Advanced click actions and per-shop GUI layout | Partial: configurable buy/sell/sell-all/amount GUI, imported category icons | Complex custom actions, buttons and bulk UI still missing |
-| Shop links, special GUI elements | Partial (balance display) | Full special-element import |
+| Advanced click actions and per-shop GUI layout | Partial: per-shop size, click overrides, navigation slots/icons and imported category GUI | Complex permission/command buttons and effects still missing |
+| Shop links, special GUI elements | Partial: balance and non-tradable decorative dummy offers | Shop links, advanced command/action and other special elements |
 | Bulk quantity selection | Implemented +/-1/10, set 1/max and on-item live price | Advanced bulk menus, quick-repeat settings and custom controls |
-| Shop permissions | Partial | Per-offer permission, dynamic ranks, bypass rules |
+| Shop permissions | Partial: explicit offer nodes plus legacy enablePerItemPermissions migration | Global access/rank bypass policy validation |
 | Price modifiers (permission and command) | Partial: persisted per-player exact/wildcard plus priority-ranked LuckPerms permission tiers | Expiry, player-specific legacy migration and full vendor command syntax remain |
 | /shop check, worth and price modifiers | Partial: /vshop check, worth and modifier management | Alias/legacy argument parity and advanced worth valuations |
 | Pre/post transaction events | Implemented independent VoxelShop cancellable prepare/completed events | Third-party integration testing and optional legacy adapters |
 | ShopGUIPlus external plugin API | Not implemented | Design independent API; bridge only as needed |
 | Persistent player-specific settings and database migrations | Not implemented | Backups, migration scripts and rollback |
 | Additional economy providers and XP systems | Partial (Vault and Vault2 only) | Provider adapters where required |
-| Custom metadata, enchantments, potion and spawner items | Partial via exact ItemStack template only | Controlled item identity and anti-spoofing tests |
+| Custom metadata, enchantments, potion and spawner items | Implemented selected vanilla metadata templates with variant markets and strict unsupported-key rejection | Live Paper 26.2 ItemMeta parity; advanced components / third-party providers remain missing |
 | Localization, sounds, per-action messages | Not implemented | Config/menu translation and reload |
 | Full crash-atomic cross-plugin transactions | **Impossible to guarantee** with generic Vault APIs | Manual reconciliation; optional idempotent provider integration |
 

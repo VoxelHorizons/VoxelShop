@@ -30,7 +30,13 @@ public final class MarketSnapshotStore {
         if (!"1".equals(saved.getProperty("format"))) throw new IOException("Unsupported market state format");
         for (MarketDefinition d : definitions.values()) {
             String k = "market." + d.id() + ".";
-            if (saved.getProperty(k + "stock") == null) continue;
+            boolean found = saved.stringPropertyNames().stream().anyMatch(n -> n.startsWith(k));
+            if (!found) continue; // Newly introduced market: start at configured seed stock.
+            for (String required : new String[]{"stock", "currency", "base", "capacity", "revision"}) {
+                if (saved.getProperty(k + required) == null)
+                    throw new IOException("Incomplete market snapshot for " + d.id() + " (missing "
+                            + required + "); refusing to reset dynamic prices");
+            }
             if (!d.currency().equals(saved.getProperty(k + "currency"))
                     || d.basePrice().compareTo(new java.math.BigDecimal(saved.getProperty(k + "base", "-1"))) != 0
                     || d.stockCapacity() != Integer.parseInt(saved.getProperty(k + "capacity", "-1")))
@@ -46,6 +52,14 @@ public final class MarketSnapshotStore {
 
     public void save(MarketEngine engine, Map<String, MarketDefinition> definitions) throws IOException {
         Properties values = new Properties();
+        // Keep historical/orphaned markets if their shops were removed or
+        // renamed. A future catalog migration can restore them explicitly;
+        // a normal plugin reload must NEVER delete their durable stock data.
+        if (Files.exists(file)) {
+            try (InputStream input = Files.newInputStream(file)) { values.load(input); }
+            if (!"1".equals(values.getProperty("format")))
+                throw new IOException("Cannot save over unknown market snapshot format");
+        }
         values.setProperty("format", "1");
         for (MarketDefinition d : definitions.values()) {
             String k = "market." + d.id() + ".";
@@ -56,6 +70,21 @@ public final class MarketSnapshotStore {
             values.setProperty(k + "revision", Long.toString(engine.revision(d.id())));
         }
         atomicProperties(file, values);
+    }
+
+    /** Lists stock market IDs not present in the current catalogue. Read-only. */
+    public java.util.List<String> orphanedMarkets(Map<String, MarketDefinition> definitions) throws IOException {
+        if (!Files.exists(file)) return java.util.List.of();
+        Properties values = new Properties();
+        try (InputStream input = Files.newInputStream(file)) { values.load(input); }
+        java.util.List<String> old = new java.util.ArrayList<>();
+        for (String key : values.stringPropertyNames()) {
+            if (!key.startsWith("market.") || !key.endsWith(".stock")) continue;
+            String market = key.substring("market.".length(), key.length() - ".stock".length());
+            if (!definitions.containsKey(market)) old.add(market);
+        }
+        old.sort(String::compareTo);
+        return java.util.List.copyOf(old);
     }
 
     public static void atomicProperties(Path target, Properties values) throws IOException {
@@ -75,10 +104,21 @@ public final class MarketSnapshotStore {
         }
     }
 
-    /** Persist the directory entry as well as the file bytes on Linux. */
+    /**
+     * Flush the parent directory after atomic file replacement where Java's
+     * filesystem provider supports opening directory handles. Windows NTFS
+     * generally disallows Java FileChannel.open(directory), so attempting a
+     * Linux-only directory fsync would lock ALL shop trading on Windows.
+     * We still force the temporary file itself and perform atomic rename.
+     */
     public static void forceDirectory(Path directory) throws IOException {
+        if (!supportsDirectoryForce(System.getProperty("os.name", ""))) return;
         try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
             channel.force(true);
         }
+    }
+
+    static boolean supportsDirectoryForce(String osName) {
+        return osName == null || !osName.toLowerCase(java.util.Locale.ROOT).startsWith("windows");
     }
 }

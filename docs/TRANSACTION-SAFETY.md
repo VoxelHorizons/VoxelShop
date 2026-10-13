@@ -70,3 +70,13 @@ vanilla stacks only. Sales select the highest current SELL quote among offers
 in accessible shops denominated in `economy.default-currency`; this does not
 implicitly exchange tokens or cosmetics. Multi-stack commands intentionally cap
 work at eight trade operations per invocation to avoid long main-thread pauses.
+
+## Platform-specific filesystem durability
+
+A normal write first forces the temporary file, then renames atomically on the
+same filesystem. Linux also calls `force(true)` on the directory handle to
+persist rename metadata. Windows does not expose a portable Java directory
+FileChannel handle, so VoxelShop deliberately skips the directory flush there
+instead of halting every trade; full crash-durability guarantees on Windows
+depend on the storage stack. **Test power-loss/kill recovery on the production
+OS; do not assume an atomic file rename is a multi-plugin transaction.**

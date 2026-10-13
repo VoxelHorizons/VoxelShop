@@ -125,6 +125,7 @@ public final class SellCommand implements CommandExecutor {
                     && !player.hasPermission("voxelshop.shop.*")) continue;
             for (ImportedCatalog.Offer offer : shop.offers()) {
                 if (!"item".equals(offer.type()) || !offer.canSell()
+                        || !offer.itemMetadata().isPlain()
                         || offer.permission() != null && !player.hasPermission(offer.permission())
                         || !material.name().equalsIgnoreCase(offer.materialOrSpecial())) continue;
                 if (!currency.equalsIgnoreCase(plugin.catalog().markets().get(offer.marketId()).currency()))

@@ -70,7 +70,7 @@ public final class TradeCoordinator {
 
         ItemStack exact;
         try {
-            exact = plugin.items().create(offer.materialOrSpecial(), 1);
+            exact = plugin.items().create(offer, 1);
         } catch (RuntimeException error) {
             return "This item cannot be traded: " + error.getMessage();
         }

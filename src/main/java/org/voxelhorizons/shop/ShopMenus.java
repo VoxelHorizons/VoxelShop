@@ -114,11 +114,11 @@ public final class ShopMenus implements Listener {
         Holder holder = new Holder(shopId, page);
         String title = shop.title().replace("%page%", Integer.toString(page))
                 .replace("%pages%", Integer.toString(pages));
-        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player, title, true));
+        Inventory inventory = Bukkit.createInventory(holder, shop.size(), plugin.text().render(player, title, true));
         holder.inventory = inventory;
         Material fill = match(shop.fillerMaterial());
         if (fill != Material.AIR) {
-            for (int i = 0; i < 54; i++)
+            for (int i = 0; i < shop.size(); i++)
                 inventory.setItem(i, item(fill, plugin.text().render(player, shop.fillerName(), false), java.util.Collections.emptyList()));
         }
         boolean nextPage = false;
@@ -127,6 +127,7 @@ public final class ShopMenus implements Listener {
             if (offer.page() != page) continue;
             if (offer.permission() != null && !player.hasPermission(offer.permission())) continue;
             int slot = offer.slot();
+            holder.occupiedSlots.add(slot);
             if ("special".equals(offer.type())) {
                 if ("balance".equalsIgnoreCase(offer.materialOrSpecial())) {
                     List<String> lore = new ArrayList<>();
@@ -141,9 +142,25 @@ public final class ShopMenus implements Listener {
                 }
                 continue;
             }
+            if ("dummy".equals(offer.type())) {
+                ItemStack decoration;
+                try { decoration = plugin.items().create(offer, offer.quantity()); }
+                catch (RuntimeException invalid) { decoration = new ItemStack(Material.BARRIER); }
+                ItemMeta decorMeta = decoration.getItemMeta();
+                if (decorMeta != null) {
+                    if (offer.displayName() != null)
+                        decorMeta.setDisplayName(plugin.text().render(player, offer.displayName(), false));
+                    if (!offer.displayLore().isEmpty())
+                        decorMeta.setLore(offer.displayLore().stream()
+                                .map(line -> plugin.text().render(player, line, false)).toList());
+                    decoration.setItemMeta(decorMeta);
+                }
+                inventory.setItem(slot, decoration);
+                continue; // Decorative dummy is NEVER a trade event.
+            }
             ItemStack icon;
             try {
-                icon = plugin.items().create(offer.materialOrSpecial(), offer.quantity());
+                icon = plugin.items().create(offer, offer.quantity());
             } catch (RuntimeException unavailable) {
                 icon = new ItemStack(Material.BARRIER);
             }
@@ -174,7 +191,7 @@ public final class ShopMenus implements Listener {
             for (ClickType clickAction : new ClickType[]{
                     ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT, ClickType.SHIFT_RIGHT,
                     ClickType.MIDDLE}) {
-                ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), clickAction);
+                ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), clickAction, shop.clickActions());
                 if (action == ShopClickActions.Action.NONE) continue;
                 if ((action == ShopClickActions.Action.BUY || action == ShopClickActions.Action.BUY_GUI)
                         && !offer.canBuy()) continue;
@@ -191,20 +208,25 @@ public final class ShopMenus implements Listener {
             holder.offerClicks.put(slot, offer);
         }
 
-        if (!holder.offerClicks.containsKey(0) && inventory.getItem(0) == null) {
-            inventory.setItem(0, item(Material.ARROW, ChatColor.YELLOW + "Shop categories",
-                    java.util.Collections.singletonList(ChatColor.GRAY + "Return to the shop list")));
-            holder.navigation.put(0, 0);
+        int backSlot = shop.buttonSlot("goBack", 0);
+        int previousSlot = shop.buttonSlot("previousPage", shop.size() - 9);
+        int nextSlot = shop.buttonSlot("nextPage", shop.size() - 1);
+        if (backSlot >= 0 && !holder.occupiedSlots.contains(backSlot)) {
+            inventory.setItem(backSlot, navigationIcon(player, shop.buttonIcon("goBack"), "Shop categories",
+                    List.of(ChatColor.GRAY + "Return to the shop list")));
+            holder.navigation.put(backSlot, 0);
         }
-        if (page > 1 && !holder.offerClicks.containsKey(45)) {
-            inventory.setItem(45, item(Material.ARROW, ChatColor.YELLOW + "Previous page",
-                    java.util.Collections.singletonList(ChatColor.GRAY + "Page " + (page - 1))));
-            holder.navigation.put(45, -1);
+        if (page > 1 && previousSlot >= 0 && !holder.occupiedSlots.contains(previousSlot)
+                && !holder.navigation.containsKey(previousSlot)) {
+            inventory.setItem(previousSlot, navigationIcon(player, shop.buttonIcon("previousPage"), "Previous page",
+                    List.of(ChatColor.GRAY + "Page " + (page - 1))));
+            holder.navigation.put(previousSlot, -1);
         }
-        if (nextPage && !holder.offerClicks.containsKey(53)) {
-            inventory.setItem(53, item(Material.ARROW, ChatColor.YELLOW + "Next page",
-                    java.util.Collections.singletonList(ChatColor.GRAY + "Page " + (page + 1))));
-            holder.navigation.put(53, 1);
+        if (nextPage && nextSlot >= 0 && !holder.occupiedSlots.contains(nextSlot)
+                && !holder.navigation.containsKey(nextSlot)) {
+            inventory.setItem(nextSlot, navigationIcon(player, shop.buttonIcon("nextPage"), "Next page",
+                    List.of(ChatColor.GRAY + "Page " + (page + 1))));
+            holder.navigation.put(nextSlot, 1);
         }
         player.openInventory(inventory);
     }
@@ -221,7 +243,7 @@ public final class ShopMenus implements Listener {
         if (side == MarketQuote.Side.BUY && !offer.canBuy()
                 || side == MarketQuote.Side.SELL && !offer.canSell()) return;
         ItemStack template;
-        try { template = plugin.items().create(offer.materialOrSpecial(), 1); }
+        try { template = plugin.items().create(offer, 1); }
         catch (RuntimeException failure) {
             player.sendMessage(ChatColor.RED + failure.getMessage());
             return;
@@ -263,7 +285,7 @@ public final class ShopMenus implements Listener {
         holder.navigation.put(22, 2);
 
         ItemStack selected;
-        try { selected = plugin.items().create(holder.selectedOffer.materialOrSpecial(), holder.selectedQuantity); }
+        try { selected = plugin.items().create(holder.selectedOffer, holder.selectedQuantity); }
         catch (RuntimeException failure) { selected = new ItemStack(Material.BARRIER); }
         ItemMeta meta = selected.getItemMeta();
         if (meta != null) {
@@ -317,7 +339,8 @@ public final class ShopMenus implements Listener {
             else Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page + step));
         } else if (holder.offerClicks.containsKey(slot)) {
             ImportedCatalog.Offer offer = holder.offerClicks.get(slot);
-            ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), click);
+            ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), click,
+                    plugin.catalog().shops().get(holder.shop).clickActions());
             MarketQuote.Side side = switch (action) {
                 case BUY, BUY_GUI -> MarketQuote.Side.BUY;
                 case SELL, SELL_GUI, SELL_ALL -> MarketQuote.Side.SELL;
@@ -391,6 +414,28 @@ public final class ShopMenus implements Listener {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
     }
 
+    private ItemStack navigationIcon(Player player, ImportedCatalog.NavigationIcon configured,
+                                     String fallbackTitle, List<String> fallbackLore) {
+        if (configured == null) return item(Material.ARROW, ChatColor.YELLOW + fallbackTitle, fallbackLore);
+        ItemStack result;
+        try { result = plugin.items().create(configured.material(), configured.quantity()); }
+        catch (RuntimeException unsupported) {
+            plugin.getLogger().warning("Unknown navigation icon: " + configured.material());
+            return item(Material.BARRIER, ChatColor.RED + fallbackTitle, fallbackLore);
+        }
+        ItemMeta meta = result.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(configured.name() == null
+                    ? ChatColor.YELLOW + fallbackTitle
+                    : plugin.text().render(player, configured.name(), false));
+            meta.setLore(configured.lore().isEmpty() ? fallbackLore
+                    : configured.lore().stream()
+                            .map(line -> plugin.text().render(player, line, false)).toList());
+            result.setItemMeta(meta);
+        }
+        return result;
+    }
+
     private static ItemStack item(Material material, String display, List<String> lore) {
         ItemStack result = new ItemStack(material);
         ItemMeta meta = result.getItemMeta();
@@ -406,6 +451,7 @@ public final class ShopMenus implements Listener {
         final String shop;
         final int page;
         final Map<Integer, String> categoryClicks = new HashMap<>();
+        final java.util.Set<Integer> occupiedSlots = new java.util.HashSet<>();
         final Map<Integer, ImportedCatalog.Offer> offerClicks = new HashMap<>();
         final Map<Integer, Integer> navigation = new HashMap<>();
         final Map<Integer, Integer> amountClicks = new HashMap<>();

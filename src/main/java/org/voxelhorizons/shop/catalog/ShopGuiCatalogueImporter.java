@@ -72,6 +72,62 @@ public final class ShopGuiCatalogueImporter {
                 throw new IOException("Duplicate or invalid shop ID: " + shopId);
             Map<?, ?> definition = mapping(named.getValue(), source + ": " + shopId);
             String title = String.valueOf(definition.containsKey("name") ? definition.get("name") : shopId);
+            int size = integer(definition.containsKey("size") ? definition.get("size") : 54, shopId + ".size");
+            if (size < 9 || size > 54 || size % 9 != 0)
+                throw new IOException("Invalid inventory size (must be 9..54 in rows of 9) at " + shopId);
+            Map<String,String> shopClicks = new LinkedHashMap<>();
+            if (definition.get("clickActions") != null) {
+                Map<?,?> actions = mapping(definition.get("clickActions"), shopId + ".clickActions");
+                for (var e : actions.entrySet()) {
+                    String type = String.valueOf(e.getKey()).toUpperCase(Locale.ROOT);
+                    String action = String.valueOf(e.getValue()).toUpperCase(Locale.ROOT);
+                    if (!Set.of("LEFT", "RIGHT", "SHIFT_LEFT", "SHIFT_RIGHT", "MIDDLE").contains(type)
+                            || !Set.of("BUY", "SELL", "SELL_ALL", "BUY_GUI", "SELL_GUI", "NONE").contains(action))
+                        throw new IOException("Invalid shop click action " + type + " -> " + action + " at " + shopId);
+                    shopClicks.put(type, action);
+                }
+            }
+            Map<String,Integer> buttons = new LinkedHashMap<>();
+            Map<String,ImportedCatalog.NavigationIcon> buttonIcons = new LinkedHashMap<>();
+            if (definition.get("buttons") != null) {
+                Map<?,?> configured = mapping(definition.get("buttons"), shopId + ".buttons");
+                for (var e : configured.entrySet()) {
+                    String name = String.valueOf(e.getKey());
+                    if (!Set.of("goBack", "previousPage", "nextPage").contains(name))
+                        throw new IOException("Unsupported shop navigation button " + name + " at " + shopId);
+                    Map<?,?> properties = mapping(e.getValue(), shopId + ".buttons." + name);
+                    int slot = integer(properties.get("slot"), shopId + ".buttons." + name + ".slot");
+                    if (slot < -1 || slot >= size)
+                        throw new IOException("Navigation slot outside inventory at " + shopId + "." + name);
+                    buttons.put(name, slot);
+                    if (properties.get("item") != null) {
+                        Map<?,?> image = mapping(properties.get("item"), shopId + ".buttons." + name + ".item");
+                        String materialName = String.valueOf(image.get("material")).toUpperCase(Locale.ROOT);
+                        if (!materialName.matches("[A-Z0-9_]+"))
+                            throw new IOException("Invalid navigation icon material at " + shopId + "." + name);
+                        String label = image.get("name") == null ? null : String.valueOf(image.get("name"));
+                        int amount = integer(image.containsKey("quantity") ? image.get("quantity") : 1,
+                                shopId + ".buttons." + name + ".item.quantity");
+                        if (amount < 1 || amount > 64) throw new IOException("Invalid button icon quantity");
+                        List<String> lore = new ArrayList<>();
+                        if (image.get("lore") != null) {
+                            if (!(image.get("lore") instanceof List<?> lines) || lines.size() > 32)
+                                throw new IOException("Invalid button lore");
+                            for (Object line : lines) {
+                                if (!(line instanceof String text) || text.length() > 512)
+                                    throw new IOException("Invalid button lore line");
+                                lore.add(text);
+                            }
+                        }
+                        buttonIcons.put(name, new ImportedCatalog.NavigationIcon(
+                                materialName, label, lore, amount));
+                    }
+                }
+            }
+            Object perItem = definition.get("enablePerItemPermissions");
+            if (perItem != null && !(perItem instanceof Boolean))
+                throw new IOException("enablePerItemPermissions must be boolean at " + shopId);
+            boolean enabledPerItemPermissions = Boolean.TRUE.equals(perItem);
             String shopCurrency = String.valueOf(definition.containsKey("currency")
                     ? definition.get("currency") : currency).toLowerCase(Locale.ROOT);
             if (!shopCurrency.matches("[a-z0-9_.:-]+"))
@@ -91,13 +147,38 @@ public final class ShopGuiCatalogueImporter {
                         .toLowerCase(Locale.ROOT);
                 int page = integer(item.containsKey("page") ? item.get("page") : 1, where + ".page");
                 int slot = integer(item.get("slot"), where + ".slot");
-                if (page < 1 || page > 100 || slot < 0 || slot >= 54)
+                if (page < 1 || page > 100 || slot < 0 || slot >= size)
                     throw new IOException("Invalid GUI page/slot at " + where);
                 if (!occupied.add(page + ":" + slot))
                     throw new IOException("Duplicate page/slot " + page + ":" + slot + " in shop " + shopId);
                 if ("special".equals(type)) {
                     offers.add(new ImportedCatalog.Offer(offerId, type,
                             String.valueOf(item.get("special")), 0, page, slot, null, null, null, null));
+                    continue;
+                }
+                if ("dummy".equals(type)) {
+                    Map<?,?> decor = mapping(item.get("item"), where + ".item");
+                    String custom = decor.get("voxelcore") == null ? null : String.valueOf(decor.get("voxelcore"));
+                    String material = custom == null
+                            ? String.valueOf(decor.get("material")).toUpperCase(Locale.ROOT)
+                            : "voxelcore:" + custom;
+                    if (custom == null && !material.matches("[A-Z0-9_]+")
+                            || custom != null && !custom.matches("[a-z0-9._-]+:[a-z0-9._-]+"))
+                        throw new IOException("Invalid dummy material at " + where);
+                    ShopItemMetadata metadata = ShopItemMetadata.read(decor, where + ".item", custom != null);
+                    int amount = integer(decor.containsKey("quantity") ? decor.get("quantity") : 1,
+                            where + ".item.quantity");
+                    if (amount < 1 || amount > 64) throw new IOException("Invalid dummy quantity at " + where);
+                    String name = decor.get("name") == null ? null : String.valueOf(decor.get("name"));
+                    java.util.List<String> lore = metadata.lore();
+                    String permission = item.get("permission") == null
+                            ? enabledPerItemPermissions ? "shopguiplus.item." + shopId + "." + offerId : null
+                            : String.valueOf(item.get("permission"));
+                    if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
+                        throw new IOException("Invalid dummy permission at " + where);
+                    offers.add(new ImportedCatalog.Offer(offerId, type, material, amount,
+                            page, slot, null, null, null, null, false, false,
+                            permission, name, lore, metadata));
                     continue;
                 }
                 if (!"item".equals(type))
@@ -115,6 +196,7 @@ public final class ShopGuiCatalogueImporter {
                     if (!material.matches("[A-Z0-9_]+"))
                         throw new IOException("Invalid material at " + where);
                 }
+                ShopItemMetadata itemMetadata = ShopItemMetadata.read(stack, where + ".item", customId != null);
                 int quantity = integer(stack.containsKey("quantity") ? stack.get("quantity") : 1, where + ".quantity");
                 if (quantity < 1 || quantity > 64) throw new IOException("Invalid item quantity at " + where);
                 // Missing or negative prices disable that trade direction; never trade for free.
@@ -124,7 +206,8 @@ public final class ShopGuiCatalogueImporter {
                 boolean canSell = sell != null && sell.signum() > 0;
                 if (!canBuy && !canSell || buy != null && buy.signum() == 0 || sell != null && sell.signum() == 0)
                     throw new IOException("No valid buy/sell direction or zero price at " + where);
-                String permission = item.containsKey("permission") ? String.valueOf(item.get("permission")) : null;
+                String permission = item.containsKey("permission") ? String.valueOf(item.get("permission"))
+                        : enabledPerItemPermissions ? "shopguiplus.item." + shopId + "." + offerId : null;
                 if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
                     throw new IOException("Invalid permission at " + where);
                 String displayName = stack.containsKey("name") ? String.valueOf(stack.get("name"))
@@ -146,6 +229,7 @@ public final class ShopGuiCatalogueImporter {
                     throw new IOException("Invalid offer currency at " + where);
                 String materialId = customId == null ? "minecraft:" + material.toLowerCase(Locale.ROOT)
                         : "voxelitem:" + customId;
+                if (!itemMetadata.isPlain()) materialId += ".meta_" + itemMetadata.fingerprint();
                 // Keep the historical ID for default currency while separating
                 // independent supply/price markets for alternative currencies.
                 String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
@@ -178,10 +262,10 @@ public final class ShopGuiCatalogueImporter {
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
                         quantity, page, slot, buy, sell, marketId, sellRatio,
-                        canBuy, canSell, permission, displayName, displayLore));
+                        canBuy, canSell, permission, displayName, displayLore, itemMetadata));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
-                    fillerMaterial, fillerName, offers));
+                    fillerMaterial, fillerName, offers, size, shopClicks, buttons, buttonIcons));
         }
         // Normalize sell-only margins only after every shop is imported.
         // This preserves original sell payouts when an authoritative BUY
@@ -204,10 +288,15 @@ public final class ShopGuiCatalogueImporter {
                 offers.add(new ImportedCatalog.Offer(offer.id(), offer.type(),
                         offer.materialOrSpecial(), offer.quantity(), offer.page(), offer.slot(),
                         offer.baselineBuy(), offer.baselineSell(), offer.marketId(), ratio,
-                        false, true, offer.permission(), offer.displayName(), offer.displayLore()));
+                        false, true, offer.permission(), offer.displayName(), offer.displayLore(),
+                        offer.itemMetadata()));
             }
             normalized.put(shop.id(), new ImportedCatalog.Shop(shop.id(), shop.title(), shop.currency(),
-                    shop.fillerMaterial(), shop.fillerName(), offers));
+                    shop.fillerMaterial(), shop.fillerName(), offers, shop.size(), shop.clickActions(),
+                    Map.of("goBack", shop.buttonSlot("goBack", 0),
+                           "previousPage", shop.buttonSlot("previousPage", shop.size() - 9),
+                           "nextPage", shop.buttonSlot("nextPage", shop.size() - 1)),
+                    shop.buttonIcons()));
         }
         return new ImportedCatalog(normalized, markets);
     }
