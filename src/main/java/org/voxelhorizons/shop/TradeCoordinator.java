@@ -1,6 +1,5 @@
 package org.voxelhorizons.shop;
 
-import net.milkbowl.vault2.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -37,7 +36,7 @@ public final class TradeCoordinator {
     public boolean ready() {
         try {
             return plugin.getConfig().getBoolean("trading.enabled", false)
-                    && plugin.economy().provider().isPresent()
+                    && plugin.economy().available()
                     && !journal.hasPending();
         } catch (IOException error) {
             plugin.getLogger().severe("Cannot read transaction journal: " + error.getMessage());
@@ -91,8 +90,8 @@ public final class TradeCoordinator {
             if (side == MarketQuote.Side.BUY) {
                 // Anything after this stage may have mutated an external wallet.
                 entry.stage("DEBIT_IN_PROGRESS");
-                EconomyResponse response = plugin.economy().withdraw(player, quote.currency(), quote.total());
-                if (response == null || !response.transactionSuccess())
+                boolean accepted = plugin.economy().withdraw(player, quote.currency(), quote.total());
+                if (!accepted)
                     throw new IllegalStateException("Economy debit failed or returned an ambiguous result");
                 entry.stage("DEBIT_CONFIRMED");
                 plugin.market().commitStock(quote);
@@ -107,8 +106,8 @@ public final class TradeCoordinator {
                 removeExact(player, exact, quantity);
                 entry.stage("ITEMS_REMOVED");
                 entry.stage("CREDIT_IN_PROGRESS");
-                EconomyResponse response = plugin.economy().deposit(player, quote.currency(), quote.total());
-                if (response == null || !response.transactionSuccess())
+                boolean accepted = plugin.economy().deposit(player, quote.currency(), quote.total());
+                if (!accepted)
                     throw new IllegalStateException("Economy credit failed or returned an ambiguous result");
                 entry.stage("CREDIT_CONFIRMED");
                 plugin.market().commitStock(quote);

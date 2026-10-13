@@ -1,7 +1,6 @@
 package org.voxelhorizons.shop;
 
 import net.milkbowl.vault2.economy.Economy;
-import net.milkbowl.vault2.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -10,69 +9,118 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 /**
- * No currency storage in VoxelShop. All balances and payments belong to a
- * separate economy plugin registered with VaultUnlocked's modern service API.
+ * Independently authored bridge. Prefer modern vault2 for named currencies.
+ * Fall back to legacy Vault (Essentials coins) ONLY for the explicitly
+ * configured legacy currency. Never silently route tokens/cosmetics to coins.
  */
 public final class VaultUnlockedBridge {
     private final String pluginName;
+    private String legacyCurrency = "coins";
 
-    public VaultUnlockedBridge(String pluginName) {
-        this.pluginName = pluginName;
+    public VaultUnlockedBridge(String pluginName) { this.pluginName = pluginName; }
+
+    public void setLegacyCurrency(String id) {
+        if (id == null || !id.matches("[a-z0-9_.:-]+"))
+            throw new IllegalArgumentException("Invalid legacy Vault currency ID");
+        this.legacyCurrency = id;
     }
 
     public Optional<Economy> provider() {
         RegisteredServiceProvider<Economy> registration =
                 Bukkit.getServicesManager().getRegistration(Economy.class);
         if (registration == null || registration.getProvider() == null
-                || !registration.getProvider().isEnabled()) {
-            return Optional.empty();
-        }
+                || !registration.getProvider().isEnabled()) return Optional.empty();
         return Optional.of(registration.getProvider());
     }
 
+    private Optional<net.milkbowl.vault.economy.Economy> legacyProvider() {
+        RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> registration =
+                Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+        if (registration == null || registration.getProvider() == null
+                || !registration.getProvider().isEnabled()) return Optional.empty();
+        return Optional.of(registration.getProvider());
+    }
+
+    public boolean available() { return provider().isPresent() || legacyProvider().isPresent(); }
+
     public Economy requireProvider(String currency) {
         Economy economy = provider().orElseThrow(() ->
-                new IllegalStateException("No active VaultUnlocked Economy (vault2) provider registered"));
+                new IllegalStateException("No active vault2 Economy provider registered"));
         if (!economy.hasMultiCurrencySupport()) {
             String defaultCurrency = economy.getDefaultCurrency(pluginName);
-            if (!defaultCurrency.equalsIgnoreCase(currency))
-                throw new IllegalStateException("Economy provider only supports default currency: " + defaultCurrency);
+            if (defaultCurrency == null || !defaultCurrency.equalsIgnoreCase(currency))
+                throw new IllegalStateException("Provider does not support currency " + currency);
         } else if (!economy.hasCurrency(currency)) {
-            throw new IllegalStateException("Unknown VaultUnlocked currency: " + currency);
+            throw new IllegalStateException("Unknown vault2 currency: " + currency);
         }
         return economy;
     }
 
+    private net.milkbowl.vault.economy.Economy requireLegacy(String currency) {
+        if (!legacyCurrency.equalsIgnoreCase(currency))
+            throw new IllegalStateException("Legacy Vault may only transact " + legacyCurrency);
+        return legacyProvider().orElseThrow(() -> new IllegalStateException("No legacy Vault economy provider"));
+    }
+
     public BigDecimal balance(Player player, String currency) {
-        Economy economy = requireProvider(currency);
-        if (!economy.accountSupportsCurrency(pluginName, player.getUniqueId(), currency, player.getWorld().getName()))
-            throw new IllegalStateException("Account does not support currency " + currency);
-        return economy.balance(pluginName, player.getUniqueId(), player.getWorld().getName(), currency);
+        if (provider().isPresent()) {
+            Economy economy = requireProvider(currency);
+            if (!economy.accountSupportsCurrency(pluginName, player.getUniqueId(),
+                    currency, player.getWorld().getName()))
+                throw new IllegalStateException("Wallet does not support " + currency);
+            return economy.balance(pluginName, player.getUniqueId(), player.getWorld().getName(), currency);
+        }
+        double amount = requireLegacy(currency).getBalance(player, player.getWorld().getName());
+        if (!Double.isFinite(amount)) throw new IllegalStateException("Invalid legacy Vault balance");
+        return BigDecimal.valueOf(amount);
     }
 
     public String format(BigDecimal amount, String currency) {
-        Economy economy = requireProvider(currency);
-        return economy.format(pluginName, amount, currency);
+        if (provider().isPresent()) return requireProvider(currency).format(pluginName, amount, currency);
+        return requireLegacy(currency).format(requireSafeDouble(amount));
     }
 
-    /**
-     * Preflight only; no inventory or market state is changed here.
-     * A future transaction coordinator must control debit and item delivery.
-     */
     public boolean canAfford(Player player, String currency, BigDecimal amount) {
-        if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        requirePositive(amount);
         return balance(player, currency).compareTo(amount) >= 0;
     }
 
-    public EconomyResponse withdraw(Player player, String currency, BigDecimal amount) {
-        if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-        Economy economy = requireProvider(currency);
-        return economy.withdraw(pluginName, player.getUniqueId(), player.getWorld().getName(), currency, amount);
+    public boolean withdraw(Player player, String currency, BigDecimal amount) {
+        requirePositive(amount);
+        if (provider().isPresent()) {
+            var response = requireProvider(currency).withdraw(pluginName, player.getUniqueId(),
+                    player.getWorld().getName(), currency, amount);
+            return response != null && response.transactionSuccess();
+        }
+        var response = requireLegacy(currency).withdrawPlayer(player, player.getWorld().getName(),
+                requireSafeDouble(amount));
+        return response != null && response.transactionSuccess();
     }
 
-    public EconomyResponse deposit(Player player, String currency, BigDecimal amount) {
-        if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-        Economy economy = requireProvider(currency);
-        return economy.deposit(pluginName, player.getUniqueId(), player.getWorld().getName(), currency, amount);
+    public boolean deposit(Player player, String currency, BigDecimal amount) {
+        requirePositive(amount);
+        if (provider().isPresent()) {
+            var response = requireProvider(currency).deposit(pluginName, player.getUniqueId(),
+                    player.getWorld().getName(), currency, amount);
+            return response != null && response.transactionSuccess();
+        }
+        var response = requireLegacy(currency).depositPlayer(player, player.getWorld().getName(),
+                requireSafeDouble(amount));
+        return response != null && response.transactionSuccess();
+    }
+
+    private static void requirePositive(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0)
+            throw new IllegalArgumentException("Transaction amount must be positive");
+    }
+
+    private static double requireSafeDouble(BigDecimal amount) {
+        requirePositive(amount);
+        if (amount.compareTo(new BigDecimal("1000000000000")) > 0)
+            throw new IllegalArgumentException("Legacy Vault amount too large for safe conversion");
+        double d = amount.doubleValue();
+        if (!Double.isFinite(d) || BigDecimal.valueOf(d).compareTo(amount) != 0)
+            throw new IllegalArgumentException("Legacy Vault amount would lose decimal precision");
+        return d;
     }
 }

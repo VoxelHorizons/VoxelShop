@@ -28,6 +28,7 @@ public final class VoxelShop extends JavaPlugin {
     @Override public void onEnable() {
         saveDefaultConfig();
         economy = new VaultUnlockedBridge(getName());
+        economy.setLegacyCurrency(getConfig().getString("economy.legacy-currency", "coins"));
         try {
             snapshots = new MarketSnapshotStore(getDataFolder().toPath().resolve("market-state.properties"));
             journal = new TradeJournal(getDataFolder().toPath().resolve("journal"));
@@ -51,7 +52,7 @@ public final class VoxelShop extends JavaPlugin {
         command.setExecutor(handler);
         command.setTabCompleter(handler);
 
-        if (!economy.provider().isPresent())
+        if (!economy.available())
             getLogger().warning("No VaultUnlocked vault2 Economy provider found: shop browsing works, trading is disabled.");
         try {
             long unresolved = journal.unresolved().size();
@@ -73,6 +74,7 @@ public final class VoxelShop extends JavaPlugin {
         if (!Files.isDirectory(source))
             throw new IllegalStateException("Missing shop YAML. Copy ShopGUIPlus/shops/*.yml into plugins/VoxelShop/shops/");
 
+        economy.setLegacyCurrency(getConfig().getString("economy.legacy-currency", "coins"));
         String currency = getConfig().getString("economy.default-currency", "coins")
                 .toLowerCase(Locale.ROOT);
         int target = getConfig().getInt("market.target-stock", 1000);
