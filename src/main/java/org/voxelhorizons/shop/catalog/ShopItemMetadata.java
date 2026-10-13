@@ -69,6 +69,10 @@ public final class ShopItemMetadata {
             }
         }
         Integer damage = map.get("damage") == null ? null : number(map.get("damage"), 0, 32767, where + ".damage");
+        // ShopGUIPlus legacy YAML commonly writes damage: 0 on every item,
+        // including bread. Zero is no actual durability change in a modern
+        // ItemStack, so it must not create a separate market identity.
+        if (Integer.valueOf(0).equals(damage)) damage = null;
         Integer model = map.get("customModelData") == null ? null
                 : number(map.get("customModelData"), 0, 16_777_215, where + ".customModelData");
         Object unbreakableValue = map.get("unbreakable");
