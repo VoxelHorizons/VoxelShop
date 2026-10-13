@@ -72,7 +72,7 @@ public final class ShopGuiCatalogueImporter {
                 throw new IOException("Duplicate or invalid shop ID: " + shopId);
             Map<?, ?> definition = mapping(named.getValue(), source + ": " + shopId);
             String title = String.valueOf(definition.containsKey("name") ? definition.get("name") : shopId);
-            int size = integer(definition.getOrDefault("size", 54), shopId + ".size");
+            int size = integer(definition.containsKey("size") ? definition.get("size") : 54, shopId + ".size");
             if (size < 9 || size > 54 || size % 9 != 0)
                 throw new IOException("Invalid inventory size (must be 9..54 in rows of 9) at " + shopId);
             Map<String,String> shopClicks = new LinkedHashMap<>();
