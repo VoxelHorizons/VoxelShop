@@ -37,7 +37,8 @@ public final class TradeCoordinator {
 
     public boolean ready() {
         try {
-            return plugin.getConfig().getBoolean("trading.enabled", false)
+            return plugin.catalogueValid()
+                    && plugin.getConfig().getBoolean("trading.enabled", false)
                     && plugin.economy().available()
                     && !journal.hasPending();
         } catch (IOException error) {

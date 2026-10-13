@@ -106,8 +106,15 @@ public final class ShopMenus implements Listener {
             return;
         }
 
+        int pages = shop.offers().stream().mapToInt(ImportedCatalog.Offer::page).max().orElse(1);
+        if (page > pages) {
+            player.sendMessage(ChatColor.RED + "There is no page " + page + " in this shop.");
+            return;
+        }
         Holder holder = new Holder(shopId, page);
-        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player, shop.title(), true));
+        String title = shop.title().replace("%page%", Integer.toString(page))
+                .replace("%pages%", Integer.toString(pages));
+        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player, title, true));
         holder.inventory = inventory;
         Material fill = match(shop.fillerMaterial());
         if (fill != Material.AIR) {

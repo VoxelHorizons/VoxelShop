@@ -22,6 +22,7 @@ import java.util.Locale;
 public final class VoxelShop extends JavaPlugin {
     private ImportedCatalog catalog;
     private MainMenuLayout mainMenu;
+    private volatile boolean catalogueValid;
     private MarketEngine market;
     private VaultUnlockedBridge economy;
     private ShopMenus menus;
@@ -77,6 +78,9 @@ public final class VoxelShop extends JavaPlugin {
     }
 
     public void loadCatalog() throws Exception {
+        // Fail closed during reload: invalid config must never activate a stale
+        // inventory/economy workflow against a partially loaded catalogue.
+        catalogueValid = false;
         // Import user-authored ShopGUIPlus YAML. Does not copy the original plugin code.
         Path source = getDataFolder().toPath().resolve("shops");
         if (!Files.isDirectory(source))
@@ -113,12 +117,14 @@ public final class VoxelShop extends JavaPlugin {
         this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
+        catalogueValid = true;
     }
 
     private java.math.BigDecimal priceDecimal(String key, String fallback) {
         return new java.math.BigDecimal(String.valueOf(getConfig().get(key, fallback)));
     }
 
+    public boolean catalogueValid() { return catalogueValid; }
     public ImportedCatalog catalog() { return catalog; }
     public MainMenuLayout mainMenu() { return mainMenu; }
     public MarketEngine market() { return market; }
