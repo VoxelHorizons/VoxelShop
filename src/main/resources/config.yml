@@ -1,0 +1,14 @@
+# VoxelShop: independent shop interface + VaultUnlocked economy integration.
+# This first build is GUI/quote PREVIEW ONLY. Transactions are intentionally not enabled.
+economy:
+  # This must match a currency ID registered by your installed vault2 economy provider.
+  # VaultUnlocked is an API bridge; a supporting economy plugin is also required.
+  default-currency: coins
+
+market:
+  target-stock: 1000
+  stock-capacity: 100000
+
+gui:
+  title: '&8ᴠᴏxᴇʟ ꜱʜᴏᴘ'
+  preview-only: true

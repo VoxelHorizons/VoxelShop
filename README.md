@@ -1,5 +1,59 @@
 # VoxelShop — independently implemented shop and market platform
 
+## Phase 2: Paper 26.2 VoxelShop preview and VaultUnlocked (stacked PR)
+
+The repository now contains a first *deployable, read-only* Paper 26.2 plugin:
+`org.voxelhorizons.shop.VoxelShop`, its `plugin.yml`, `/vshop` (`/shop` alias),
+GUI category and shop-page browsing, and protected inventory click/drag handling.
+It reads ordinary `shops/*.yml` configurations from `plugins/VoxelShop/shops`
+or (if absent) `plugins/ShopGUIPlus/shops`. It does not write to those files.
+
+### Dependencies
+
+* Paper 26.2 / Java 25 for this build
+* VaultUnlocked (plugin name `Vault`) **and** a currency provider implementing
+  the modern `net.milkbowl.vault2.economy.Economy` service. VaultUnlocked is
+  an abstraction/API, **not the player-balance backend**.
+* `VaultUnlockedAPI:2.20` is `provided` (not bundled in the VoxelShop JAR).
+  The implementation is compiled against the actual modern API, not the
+  legacy single-currency `net.milkbowl.vault.economy.Economy`.
+
+Configure `economy.default-currency` as the currency ID actually registered by
+your economy provider. Do not assume a `voxel:` namespace unless that provider
+defines it. Multi-currency requires `hasMultiCurrencySupport()` and
+`hasCurrency(id)`; the bridge rejects a non-default currency on providers
+that only implement the legacy/default wallet.
+
+### Trial deployment
+
+1. Back up your server. Stop it before updating plugins.
+2. Install Paper 26.2, VaultUnlocked and an appropriate vault2 economy provider.
+3. Install the **VoxelShop 26.2 plugin JAR** from successful CI artifacts.
+4. Copy the *user-authored* shop YAML files into `plugins/VoxelShop/shops`
+   and set the currency ID in `plugins/VoxelShop/config.yml`.
+5. Restart, then use `/vshop`, `/vshop lumberjack`, and `/vshop lumberjack 2`.
+   `/vshop reload` requires `voxelshop.admin`.
+
+### Safety boundary
+
+This is **preview-only by design**: no item or wallet changes, no stock writes.
+Live trades must not be enabled by changing a configuration flag: they require
+the still-unimplemented durable coordinator. GUI items are informational and
+clicks are cancelled in both shop and player inventories, including drags.
+This protects from unintended item transfer/duping during migration testing.
+
+The first GUI is functional for categories, paging and live price *display*,
+but is **not feature-complete parity** with ShopGUIPlus. Missing: actual
+buy/sell/sell-all; amount-selector GUI; dynamic stock persistence; admin and
+price-modifier commands; item-provider integrations; configurable click mappings;
+pre/post transaction hooks; and server restart/recovery testing.
+
+The user's licensed ShopGUIPlus JAR was analysed for command, event, GUI and
+provider interfaces, but no decompiled proprietary source is published here.
+The source in this repository is an independent reimplementation. Original
+plugin licensing and redistribution permissions must be observed.
+
+
 VoxelShop is a new implementation, not a recompiled ShopGUIPlus JAR. Proprietary binary code, vendor assets, credentials and user data must never be committed here.
 
 ## Status: Phase 1 foundation (NOT a deployable shop plugin)

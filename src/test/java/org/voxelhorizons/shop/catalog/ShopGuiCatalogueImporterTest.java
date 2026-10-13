@@ -52,13 +52,50 @@ class ShopGuiCatalogueImporterTest {
         assertEquals("balance", lumberjack.offers().get(2).materialOrSpecial());
     }
 
+    @Test void supportsPerShopAndPerOfferVaultUnlockedCurrencies() throws Exception {
+        write("mixed.yml", "mixed:\n"
+                + "  currency: voxel:coins\n"
+                + "  items:\n"
+                + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 200, sellPrice: 10, slot: 10}\n"
+                + "    2: {type: item, item: {material: DIAMOND}, currency: voxel:cosmetics, buyPrice: 30, sellPrice: 3, slot: 11}\n");
+        ImportedCatalog result = importShops();
+        assertEquals("voxel:coins", result.shops().get("mixed").currency());
+        assertEquals(2, result.markets().size());
+        assertEquals("voxel:coins", result.markets().get("minecraft:diamond").currency());
+        assertEquals("voxel:cosmetics", result.markets().get("voxel:cosmetics:minecraft:diamond").currency());
+        assertEquals(0, new BigDecimal("30").compareTo(result.markets().get("voxel:cosmetics:minecraft:diamond").basePrice()));
+        assertEquals("voxel:cosmetics:minecraft:diamond", result.shops().get("mixed").offers().get(1).marketId());
+    }
+
+    @Test void preservesDifferentShopSellMarginsForOneSharedMarket() throws Exception {
+        write("farmer.yml", "farmer:\n  items:\n"
+                + "    1: {type: item, item: {material: REDSTONE}, buyPrice: 3.30, sellPrice: 0.17, slot: 10}\n");
+        write("miner.yml", "miner:\n  items:\n"
+                + "    1: {type: item, item: {material: REDSTONE}, buyPrice: 3.30, sellPrice: 0.49, slot: 11}\n");
+        ImportedCatalog result = importShops();
+        assertEquals(1, result.markets().size());
+        ImportedCatalog.Offer low = result.shops().get("farmer").offers().get(0);
+        ImportedCatalog.Offer high = result.shops().get("miner").offers().get(0);
+        assertEquals(low.marketId(), high.marketId());
+        assertTrue(high.sellRatio().compareTo(low.sellRatio()) > 0);
+        org.voxelhorizons.shop.market.MarketEngine engine =
+                new org.voxelhorizons.shop.market.MarketEngine(
+                        org.voxelhorizons.shop.market.MarketPolicy.defaults());
+        engine.register(result.markets().get(low.marketId()));
+        BigDecimal first = engine.quote(low.marketId(),
+                org.voxelhorizons.shop.market.MarketQuote.Side.SELL, 1, low.sellRatio()).total();
+        BigDecimal second = engine.quote(high.marketId(),
+                org.voxelhorizons.shop.market.MarketQuote.Side.SELL, 1, high.sellRatio()).total();
+        assertTrue(second.compareTo(first) > 0);
+    }
+
     @Test void rejectsConflictingPricesForSharedMarkets() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: OAK_LOG}, buyPrice: 9, sellPrice: 1, slot: 10}\n");
         write("two.yml", "two:\n  items:\n"
                 + "    1: {type: item, item: {material: OAK_LOG}, buyPrice: 11, sellPrice: 1, slot: 10}\n");
         IOException ex = assertThrows(IOException.class, this::importShops);
-        assertTrue(ex.getMessage().contains("Conflicting baseline"));
+        assertTrue(ex.getMessage().contains("Conflicting buy baseline"));
     }
 
     @Test void rejectsDuplicateKeysOrOverlappingSlots() throws Exception {

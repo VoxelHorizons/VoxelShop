@@ -23,19 +23,22 @@ public final class ImportedCatalog {
     public static final class Shop {
         private final String id;
         private final String title;
+        private final String currency;
         private final String fillerMaterial;
         private final String fillerName;
         private final List<Offer> offers;
 
-        Shop(String id, String title, String fillerMaterial, String fillerName, List<Offer> offers) {
+        Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers) {
             this.id = id;
             this.title = title;
+            this.currency = currency;
             this.fillerMaterial = fillerMaterial;
             this.fillerName = fillerName;
             this.offers = Collections.unmodifiableList(new ArrayList<>(offers));
         }
         public String id() { return id; }
         public String title() { return title; }
+        public String currency() { return currency; }
         public String fillerMaterial() { return fillerMaterial; }
         public String fillerName() { return fillerName; }
         public List<Offer> offers() { return offers; }
@@ -51,9 +54,10 @@ public final class ImportedCatalog {
         private final BigDecimal baselineBuy;
         private final BigDecimal baselineSell;
         private final String marketId;
+        private final BigDecimal sellRatio;
 
         Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
-              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId) {
+              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio) {
             this.id = id;
             this.type = type;
             this.materialOrSpecial = materialOrSpecial;
@@ -63,6 +67,7 @@ public final class ImportedCatalog {
             this.baselineBuy = baselineBuy;
             this.baselineSell = baselineSell;
             this.marketId = marketId;
+            this.sellRatio = sellRatio;
         }
         public String id() { return id; }
         public String type() { return type; }
@@ -73,5 +78,6 @@ public final class ImportedCatalog {
         public BigDecimal baselineBuy() { return baselineBuy; }
         public BigDecimal baselineSell() { return baselineSell; }
         public String marketId() { return marketId; }
+        public BigDecimal sellRatio() { return sellRatio; }
     }
 }

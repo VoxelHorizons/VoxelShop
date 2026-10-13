@@ -34,7 +34,7 @@ public final class ShopGuiCatalogueImporter {
     public static ImportedCatalog read(Path directory, String currency, int targetStock, int capacity) throws IOException {
         Objects.requireNonNull(directory, "directory");
         if (!Files.isDirectory(directory)) throw new IOException("Missing shop configuration directory: " + directory);
-        if (currency == null || !currency.matches("[a-z0-9._-]+:[a-z0-9._-]+"))
+        if (currency == null || !currency.matches("[a-z0-9_.:-]+"))
             throw new IllegalArgumentException("Invalid currency ID");
         if (targetStock < 1 || capacity < targetStock)
             throw new IllegalArgumentException("Invalid market stock targets");
@@ -71,6 +71,10 @@ public final class ShopGuiCatalogueImporter {
                 throw new IOException("Duplicate or invalid shop ID: " + shopId);
             Map<?, ?> definition = mapping(named.getValue(), source + ": " + shopId);
             String title = String.valueOf(definition.containsKey("name") ? definition.get("name") : shopId);
+            String shopCurrency = String.valueOf(definition.containsKey("currency")
+                    ? definition.get("currency") : currency).toLowerCase(Locale.ROOT);
+            if (!shopCurrency.matches("[a-z0-9_.:-]+"))
+                throw new IOException("Invalid currency ID in shop " + shopId);
             Map<?, ?> filler = definition.containsKey("fillItem") ?
                     mapping(definition.get("fillItem"), shopId + ".fillItem") : java.util.Collections.emptyMap();
             String fillerMaterial = String.valueOf(filler.containsKey("material") ? filler.get("material") : "AIR");
@@ -92,7 +96,7 @@ public final class ShopGuiCatalogueImporter {
                     throw new IOException("Duplicate page/slot " + page + ":" + slot + " in shop " + shopId);
                 if ("special".equals(type)) {
                     offers.add(new ImportedCatalog.Offer(offerId, type,
-                            String.valueOf(item.get("special")), 0, page, slot, null, null, null));
+                            String.valueOf(item.get("special")), 0, page, slot, null, null, null, null));
                     continue;
                 }
                 if (!"item".equals(type))
@@ -109,23 +113,37 @@ public final class ShopGuiCatalogueImporter {
                 // never turn them into free transactions or silently assign an unsafe value.
                 if (buy.signum() <= 0 || sell.signum() < 0)
                     throw new IOException("Unsupported disabled or free price at " + where);
-                String marketId = "minecraft:" + material.toLowerCase(Locale.ROOT);
+                String itemCurrency = String.valueOf(item.containsKey("currency")
+                        ? item.get("currency") : shopCurrency).toLowerCase(Locale.ROOT);
+                if (!itemCurrency.matches("[a-z0-9_.:-]+"))
+                    throw new IOException("Invalid offer currency at " + where);
+                String materialId = "minecraft:" + material.toLowerCase(Locale.ROOT);
+                // Keep the historical ID for default currency while separating
+                // independent supply/price markets for alternative currencies.
+                String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
                 BigDecimal pricePerUnit = buy.divide(BigDecimal.valueOf(quantity), 8, RoundingMode.HALF_UP)
                         .stripTrailingZeros();
                 if (pricePerUnit.signum() <= 0)
                     throw new IOException("Calculated market price is zero at " + where);
+                // Preserve each legacy offer's initial sell-to-buy ratio.
+                // Ratios are bounded below 1.0 to prevent baseline round-trip inflation.
+                BigDecimal sellRatio = sell.divide(buy, 12, RoundingMode.HALF_UP);
+                if (sellRatio.signum() <= 0 || sellRatio.compareTo(BigDecimal.ONE) >= 0)
+                    throw new IOException("Unsafe or disabled sell ratio at " + where);
                 MarketDefinition current = markets.get(marketId);
                 if (current == null) {
-                    markets.put(marketId, new MarketDefinition(marketId, currency, pricePerUnit,
-                            targetStock, targetStock, capacity));
+                    markets.put(marketId, new MarketDefinition(marketId, itemCurrency, pricePerUnit,
+                            targetStock, targetStock, capacity, sellRatio));
                 } else if (current.basePrice().compareTo(pricePerUnit) != 0) {
-                    throw new IOException("Conflicting baseline for global market " + marketId
+                    // A single material can have the same buy price but a different
+                    // per-shop sell margin. Stock remains shared; sell margin does not.
+                    throw new IOException("Conflicting buy baseline for global market " + marketId
                             + " in " + where + ": " + current.basePrice() + " vs " + pricePerUnit);
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
-                        quantity, page, slot, buy, sell, marketId));
+                        quantity, page, slot, buy, sell, marketId, sellRatio));
             }
-            shops.put(shopId, new ImportedCatalog.Shop(shopId, title,
+            shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
                     fillerMaterial, fillerName, offers));
         }
         return new ImportedCatalog(shops, markets);
