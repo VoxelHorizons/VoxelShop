@@ -53,6 +53,11 @@ public final class TradeCoordinator {
         ImportedCatalog.Shop shop = plugin.catalog().shops().get(shopId);
         if (shop == null || !shop.offers().contains(offer) || !"item".equals(offer.type()))
             return "This shop offer is no longer available.";
+        if (side == MarketQuote.Side.BUY && !offer.canBuy()
+                || side == MarketQuote.Side.SELL && !offer.canSell())
+            return "This offer does not permit that trade direction.";
+        if (offer.permission() != null && !player.hasPermission(offer.permission()))
+            return "You do not have permission to trade this offer.";
         if (!player.hasPermission("voxelshop.use") || (!player.hasPermission("voxelshop.shop." + shopId)
                 && !player.hasPermission("voxelshop.shop.*")))
             return "You do not have permission to use this shop.";

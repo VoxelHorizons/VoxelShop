@@ -77,6 +77,7 @@ public final class ShopMenus implements Listener {
         for (ImportedCatalog.Offer offer : shop.offers()) {
             if (offer.page() > page) nextPage = true;
             if (offer.page() != page) continue;
+            if (offer.permission() != null && !player.hasPermission(offer.permission())) continue;
             int slot = offer.slot();
             if ("special".equals(offer.type())) {
                 if ("balance".equalsIgnoreCase(offer.materialOrSpecial())) {
@@ -100,22 +101,30 @@ public final class ShopMenus implements Listener {
             }
             ItemMeta metadata = icon.getItemMeta();
             if (metadata == null) continue;
-            metadata.setDisplayName(ChatColor.WHITE + pretty(offer.materialOrSpecial()));
+            metadata.setDisplayName(offer.displayName() == null
+                    ? ChatColor.WHITE + pretty(offer.materialOrSpecial()) : colors(offer.displayName()));
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD + offer.baselineBuy());
-            lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD + offer.baselineSell());
+            for (String line : offer.displayLore()) lore.add(colors(line));
+            lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD
+                    + (offer.canBuy() ? offer.baselineBuy() : "Disabled"));
+            lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD
+                    + (offer.canSell() ? offer.baselineSell() : "Disabled"));
             try {
-                MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
-                MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity(), offer.sellRatio());
-                lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + buy.total().toPlainString()
-                        + " " + buy.currency());
-                lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + sell.total().toPlainString()
-                        + " " + sell.currency());
+                if (offer.canBuy()) {
+                    MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
+                    lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + buy.total().toPlainString()
+                            + " " + buy.currency());
+                }
+                if (offer.canSell()) {
+                    MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity(), offer.sellRatio());
+                    lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + sell.total().toPlainString()
+                            + " " + sell.currency());
+                }
             } catch (RuntimeException exception) {
                 lore.add(ChatColor.RED + "Market unavailable: " + exception.getMessage());
             }
-            lore.add(ChatColor.GRAY + "Left click: buy " + offer.quantity());
-            lore.add(ChatColor.GRAY + "Right click: sell " + offer.quantity());
+            if (offer.canBuy()) lore.add(ChatColor.GRAY + "Left click: buy " + offer.quantity());
+            if (offer.canSell()) lore.add(ChatColor.GRAY + "Right click: sell " + offer.quantity());
             lore.add(ChatColor.GRAY + "Shift-click: select amount");
             if (!plugin.trades().ready())
                 lore.add(ChatColor.RED + "Trading disabled / pending staff reconciliation");
@@ -148,6 +157,8 @@ public final class ShopMenus implements Listener {
      * price request. Each chosen quantity is requoted on the main thread.
      */
     public void openAmount(Player player, String shopId, int page, ImportedCatalog.Offer offer, MarketQuote.Side side) {
+        if (side == MarketQuote.Side.BUY && !offer.canBuy()
+                || side == MarketQuote.Side.SELL && !offer.canSell()) return;
         Holder holder = new Holder(shopId, page);
         holder.selectedOffer = offer;
         holder.selectedSide = side;
@@ -216,6 +227,8 @@ public final class ShopMenus implements Listener {
         } else if (holder.offerClicks.containsKey(slot)) {
             ImportedCatalog.Offer offer = holder.offerClicks.get(slot);
             MarketQuote.Side side = event.isRightClick() ? MarketQuote.Side.SELL : MarketQuote.Side.BUY;
+            if (side == MarketQuote.Side.BUY && !offer.canBuy()
+                    || side == MarketQuote.Side.SELL && !offer.canSell()) return;
             if (event.isShiftClick()) {
                 Bukkit.getScheduler().runTask(plugin, () -> openAmount(player, holder.shop, holder.page, offer, side));
             } else {
