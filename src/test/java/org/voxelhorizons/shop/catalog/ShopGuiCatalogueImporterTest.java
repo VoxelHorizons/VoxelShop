@@ -139,6 +139,21 @@ class ShopGuiCatalogueImporterTest {
         assertEquals(new BigDecimal("0.15"), sell.sellRatio());
     }
 
+    @Test void sellOnlyOfferSharesMarketWithLaterBuyEnabledCategory() throws Exception {
+        write("a_selling.yml", "a_selling:\n  items:\n"
+                + "    item: {type: item, item: {material: STONE}, buyPrice: -1, sellPrice: 2, slot: 10}\n");
+        write("b_buying.yml", "b_buying:\n  items:\n"
+                + "    item: {type: item, item: {material: STONE}, buyPrice: 20, sellPrice: 4, slot: 11}\n");
+        ImportedCatalog result = importShops();
+        assertEquals(1, result.markets().size());
+        assertEquals(0, new BigDecimal("20").compareTo(
+                result.markets().get("minecraft:stone").basePrice()));
+        ImportedCatalog.Offer seller = result.shops().get("a_selling").offers().get(0);
+        assertEquals(0, new BigDecimal("0.10").compareTo(seller.sellRatio()));
+        assertTrue(seller.canSell());
+        assertFalse(seller.canBuy());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
