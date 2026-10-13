@@ -156,6 +156,29 @@ public final class ShopGuiCatalogueImporter {
                             String.valueOf(item.get("special")), 0, page, slot, null, null, null, null));
                     continue;
                 }
+                if ("dummy".equals(type)) {
+                    Map<?,?> decor = mapping(item.get("item"), where + ".item");
+                    String custom = decor.get("voxelcore") == null ? null : String.valueOf(decor.get("voxelcore"));
+                    String material = custom == null
+                            ? String.valueOf(decor.get("material")).toUpperCase(Locale.ROOT)
+                            : "voxelcore:" + custom;
+                    if (custom == null && !material.matches("[A-Z0-9_]+")
+                            || custom != null && !custom.matches("[a-z0-9._-]+:[a-z0-9._-]+"))
+                        throw new IOException("Invalid dummy material at " + where);
+                    ShopItemMetadata metadata = ShopItemMetadata.read(decor, where + ".item", custom != null);
+                    int amount = integer(decor.containsKey("quantity") ? decor.get("quantity") : 1,
+                            where + ".item.quantity");
+                    if (amount < 1 || amount > 64) throw new IOException("Invalid dummy quantity at " + where);
+                    String name = decor.get("name") == null ? null : String.valueOf(decor.get("name"));
+                    java.util.List<String> lore = metadata.lore();
+                    String permission = item.get("permission") == null ? null : String.valueOf(item.get("permission"));
+                    if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
+                        throw new IOException("Invalid dummy permission at " + where);
+                    offers.add(new ImportedCatalog.Offer(offerId, type, material, amount,
+                            page, slot, null, null, null, null, false, false,
+                            permission, name, lore, metadata));
+                    continue;
+                }
                 if (!"item".equals(type))
                     throw new IOException("Unsupported offer type " + type + " at " + where);
                 Map<?, ?> stack = mapping(item.get("item"), where + ".item");

@@ -142,6 +142,22 @@ public final class ShopMenus implements Listener {
                 }
                 continue;
             }
+            if ("dummy".equals(offer.type())) {
+                ItemStack decoration;
+                try { decoration = plugin.items().create(offer, offer.quantity()); }
+                catch (RuntimeException invalid) { decoration = new ItemStack(Material.BARRIER); }
+                ItemMeta decorMeta = decoration.getItemMeta();
+                if (decorMeta != null) {
+                    if (offer.displayName() != null)
+                        decorMeta.setDisplayName(plugin.text().render(player, offer.displayName(), false));
+                    if (!offer.displayLore().isEmpty())
+                        decorMeta.setLore(offer.displayLore().stream()
+                                .map(line -> plugin.text().render(player, line, false)).toList());
+                    decoration.setItemMeta(decorMeta);
+                }
+                inventory.setItem(slot, decoration);
+                continue; // Decorative dummy is NEVER a trade event.
+            }
             ItemStack icon;
             try {
                 icon = plugin.items().create(offer, offer.quantity());
