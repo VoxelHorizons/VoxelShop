@@ -85,6 +85,12 @@ class MarketSnapshotStoreTest {
                 () -> storage.restore(engine(), Map.of(def.id(), def)));
     }
 
+    @Test void windowsDoesNotRequireUnsupportedDirectoryFileChannel() {
+        assertFalse(MarketSnapshotStore.supportsDirectoryForce("Windows 11"));
+        assertFalse(MarketSnapshotStore.supportsDirectoryForce("Windows Server 2025"));
+        assertTrue(MarketSnapshotStore.supportsDirectoryForce("Linux"));
+    }
+
     @Test void acceptsEmptyInitialSnapshot() throws Exception {
         MarketEngine fresh = engine();
         new MarketSnapshotStore(folder.resolve("never-created.properties"))
