@@ -102,9 +102,18 @@ public final class ShopGuiCatalogueImporter {
                 if (!"item".equals(type))
                     throw new IOException("Unsupported offer type " + type + " at " + where);
                 Map<?, ?> stack = mapping(item.get("item"), where + ".item");
-                String material = String.valueOf(stack.get("material")).toUpperCase(Locale.ROOT);
-                if (!material.matches("[A-Z0-9_]+"))
-                    throw new IOException("Invalid material at " + where);
+                String customId = stack.containsKey("voxelcore") ? String.valueOf(stack.get("voxelcore"))
+                        : item.containsKey("voxelcore") ? String.valueOf(item.get("voxelcore")) : null;
+                String material;
+                if (customId != null) {
+                    if (!customId.matches("[a-z0-9._-]+:[a-z0-9._-]+"))
+                        throw new IOException("Invalid VoxelCore content ID at " + where);
+                    material = "voxelcore:" + customId;
+                } else {
+                    material = String.valueOf(stack.get("material")).toUpperCase(Locale.ROOT);
+                    if (!material.matches("[A-Z0-9_]+"))
+                        throw new IOException("Invalid material at " + where);
+                }
                 int quantity = integer(stack.containsKey("quantity") ? stack.get("quantity") : 1, where + ".quantity");
                 if (quantity < 1 || quantity > 64) throw new IOException("Invalid item quantity at " + where);
                 BigDecimal buy = price(item.get("buyPrice"), where + ".buyPrice");
@@ -117,7 +126,8 @@ public final class ShopGuiCatalogueImporter {
                         ? item.get("currency") : shopCurrency).toLowerCase(Locale.ROOT);
                 if (!itemCurrency.matches("[a-z0-9_.:-]+"))
                     throw new IOException("Invalid offer currency at " + where);
-                String materialId = "minecraft:" + material.toLowerCase(Locale.ROOT);
+                String materialId = customId == null ? "minecraft:" + material.toLowerCase(Locale.ROOT)
+                        : "voxelitem:" + customId;
                 // Keep the historical ID for default currency while separating
                 // independent supply/price markets for alternative currencies.
                 String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
