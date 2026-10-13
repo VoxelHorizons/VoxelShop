@@ -25,7 +25,9 @@ without custom item metadata. Creative and spectator trades are rejected.
 
 Every trade creates a durable file in `journal/pending` before **any**
 inventory or wallet change. A transaction advances through explicit phases
-recorded with atomic file replacement. When a wallet operation succeeds and a
+recorded with atomic file replacement. When an inventory mutation succeeds, VoxelShop calls `Player.saveData()`
+before archiving the transaction; this reduces but does not eliminate storage
+or filesystem failure windows. When a wallet operation succeeds and a
 market movement is applied, `market-state.properties` is saved atomically.
 
 ## IMPORTANT: external wallet operations cannot be atomic with player inventory

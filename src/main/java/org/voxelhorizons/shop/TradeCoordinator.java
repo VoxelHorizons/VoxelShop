@@ -101,10 +101,13 @@ public final class TradeCoordinator {
                 Map<Integer, ItemStack> leftovers = player.getInventory().addItem(new ItemStack(material, quantity));
                 if (!leftovers.isEmpty())
                     throw new IllegalStateException("Unexpected inventory overflow; staff reconciliation required");
+                player.saveData();
+                entry.stage("PLAYER_DATA_PERSISTED");
             } else {
                 entry.stage("REMOVAL_IN_PROGRESS");
                 removeExact(player, exact, quantity);
-                entry.stage("ITEMS_REMOVED");
+                player.saveData();
+                entry.stage("ITEMS_REMOVED_AND_SAVED");
                 entry.stage("CREDIT_IN_PROGRESS");
                 boolean accepted = plugin.economy().deposit(player, quote.currency(), quote.total());
                 if (!accepted)
