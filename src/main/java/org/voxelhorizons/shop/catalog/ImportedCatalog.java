@@ -27,8 +27,19 @@ public final class ImportedCatalog {
         private final String fillerMaterial;
         private final String fillerName;
         private final List<Offer> offers;
+        private final int size;
+        private final Map<String,String> clickActions;
+        private final Map<String,Integer> buttonSlots;
 
         Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers) {
+            this(id, title, currency, fillerMaterial, fillerName, offers, 54, Map.of(), Map.of());
+        }
+
+        Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers,
+             int size, Map<String,String> clickActions, Map<String,Integer> buttonSlots) {
+            this.size = size;
+            this.clickActions = Collections.unmodifiableMap(new LinkedHashMap<>(clickActions));
+            this.buttonSlots = Collections.unmodifiableMap(new LinkedHashMap<>(buttonSlots));
             this.id = id;
             this.title = title;
             this.currency = currency;
@@ -42,6 +53,9 @@ public final class ImportedCatalog {
         public String fillerMaterial() { return fillerMaterial; }
         public String fillerName() { return fillerName; }
         public List<Offer> offers() { return offers; }
+        public int size() { return size; }
+        public Map<String,String> clickActions() { return clickActions; }
+        public int buttonSlot(String name, int fallback) { return buttonSlots.getOrDefault(name, fallback); }
     }
 
     public static final class Offer {

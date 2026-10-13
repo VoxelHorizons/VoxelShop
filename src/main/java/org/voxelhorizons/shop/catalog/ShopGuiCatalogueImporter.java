@@ -72,6 +72,35 @@ public final class ShopGuiCatalogueImporter {
                 throw new IOException("Duplicate or invalid shop ID: " + shopId);
             Map<?, ?> definition = mapping(named.getValue(), source + ": " + shopId);
             String title = String.valueOf(definition.containsKey("name") ? definition.get("name") : shopId);
+            int size = integer(definition.getOrDefault("size", 54), shopId + ".size");
+            if (size < 9 || size > 54 || size % 9 != 0)
+                throw new IOException("Invalid inventory size (must be 9..54 in rows of 9) at " + shopId);
+            Map<String,String> shopClicks = new LinkedHashMap<>();
+            if (definition.get("clickActions") != null) {
+                Map<?,?> actions = mapping(definition.get("clickActions"), shopId + ".clickActions");
+                for (var e : actions.entrySet()) {
+                    String type = String.valueOf(e.getKey()).toUpperCase(Locale.ROOT);
+                    String action = String.valueOf(e.getValue()).toUpperCase(Locale.ROOT);
+                    if (!Set.of("LEFT", "RIGHT", "SHIFT_LEFT", "SHIFT_RIGHT", "MIDDLE").contains(type)
+                            || !Set.of("BUY", "SELL", "SELL_ALL", "BUY_GUI", "SELL_GUI", "NONE").contains(action))
+                        throw new IOException("Invalid shop click action " + type + " -> " + action + " at " + shopId);
+                    shopClicks.put(type, action);
+                }
+            }
+            Map<String,Integer> buttons = new LinkedHashMap<>();
+            if (definition.get("buttons") != null) {
+                Map<?,?> configured = mapping(definition.get("buttons"), shopId + ".buttons");
+                for (var e : configured.entrySet()) {
+                    String name = String.valueOf(e.getKey());
+                    if (!Set.of("goBack", "previousPage", "nextPage").contains(name))
+                        throw new IOException("Unsupported shop navigation button " + name + " at " + shopId);
+                    Map<?,?> properties = mapping(e.getValue(), shopId + ".buttons." + name);
+                    int slot = integer(properties.get("slot"), shopId + ".buttons." + name + ".slot");
+                    if (slot < -1 || slot >= size)
+                        throw new IOException("Navigation slot outside inventory at " + shopId + "." + name);
+                    buttons.put(name, slot);
+                }
+            }
             String shopCurrency = String.valueOf(definition.containsKey("currency")
                     ? definition.get("currency") : currency).toLowerCase(Locale.ROOT);
             if (!shopCurrency.matches("[a-z0-9_.:-]+"))
@@ -91,7 +120,7 @@ public final class ShopGuiCatalogueImporter {
                         .toLowerCase(Locale.ROOT);
                 int page = integer(item.containsKey("page") ? item.get("page") : 1, where + ".page");
                 int slot = integer(item.get("slot"), where + ".slot");
-                if (page < 1 || page > 100 || slot < 0 || slot >= 54)
+                if (page < 1 || page > 100 || slot < 0 || slot >= size)
                     throw new IOException("Invalid GUI page/slot at " + where);
                 if (!occupied.add(page + ":" + slot))
                     throw new IOException("Duplicate page/slot " + page + ":" + slot + " in shop " + shopId);
@@ -183,7 +212,7 @@ public final class ShopGuiCatalogueImporter {
                         canBuy, canSell, permission, displayName, displayLore, itemMetadata));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
-                    fillerMaterial, fillerName, offers));
+                    fillerMaterial, fillerName, offers, size, shopClicks, buttons));
         }
         // Normalize sell-only margins only after every shop is imported.
         // This preserves original sell payouts when an authoritative BUY
@@ -210,7 +239,10 @@ public final class ShopGuiCatalogueImporter {
                         offer.itemMetadata()));
             }
             normalized.put(shop.id(), new ImportedCatalog.Shop(shop.id(), shop.title(), shop.currency(),
-                    shop.fillerMaterial(), shop.fillerName(), offers));
+                    shop.fillerMaterial(), shop.fillerName(), offers, shop.size(), shop.clickActions(),
+                    Map.of("goBack", shop.buttonSlot("goBack", 0),
+                           "previousPage", shop.buttonSlot("previousPage", shop.size() - 9),
+                           "nextPage", shop.buttonSlot("nextPage", shop.size() - 1))));
         }
         return new ImportedCatalog(normalized, markets);
     }
