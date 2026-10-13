@@ -116,12 +116,29 @@ public final class ShopGuiCatalogueImporter {
                 }
                 int quantity = integer(stack.containsKey("quantity") ? stack.get("quantity") : 1, where + ".quantity");
                 if (quantity < 1 || quantity > 64) throw new IOException("Invalid item quantity at " + where);
-                BigDecimal buy = price(item.get("buyPrice"), where + ".buyPrice");
-                BigDecimal sell = price(item.get("sellPrice"), where + ".sellPrice");
-                // Negative/unavailable item prices need explicit handling in a later adapter;
-                // never turn them into free transactions or silently assign an unsafe value.
-                if (buy.signum() <= 0 || sell.signum() < 0)
-                    throw new IOException("Unsupported disabled or free price at " + where);
+                // Missing or negative prices disable that trade direction; never trade for free.
+                BigDecimal buy = item.get("buyPrice") == null ? null : price(item.get("buyPrice"), where + ".buyPrice");
+                BigDecimal sell = item.get("sellPrice") == null ? null : price(item.get("sellPrice"), where + ".sellPrice");
+                boolean canBuy = buy != null && buy.signum() > 0;
+                boolean canSell = sell != null && sell.signum() > 0;
+                if (!canBuy && !canSell || buy != null && buy.signum() == 0 || sell != null && sell.signum() == 0)
+                    throw new IOException("No valid buy/sell direction or zero price at " + where);
+                String permission = item.containsKey("permission") ? String.valueOf(item.get("permission")) : null;
+                if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
+                    throw new IOException("Invalid permission at " + where);
+                String displayName = stack.containsKey("name") ? String.valueOf(stack.get("name"))
+                        : item.containsKey("displayName") ? String.valueOf(item.get("displayName")) : null;
+                List<String> displayLore = new ArrayList<>();
+                Object rawLore = stack.containsKey("lore") ? stack.get("lore") : item.get("lore");
+                if (rawLore != null) {
+                    if (!(rawLore instanceof List<?> lines) || lines.size() > 32)
+                        throw new IOException("Invalid item lore at " + where);
+                    for (Object line : lines) {
+                        if (line == null || String.valueOf(line).length() > 512)
+                            throw new IOException("Invalid lore line at " + where);
+                        displayLore.add(String.valueOf(line));
+                    }
+                }
                 String itemCurrency = String.valueOf(item.containsKey("currency")
                         ? item.get("currency") : shopCurrency).toLowerCase(Locale.ROOT);
                 if (!itemCurrency.matches("[a-z0-9_.:-]+"))
@@ -131,15 +148,21 @@ public final class ShopGuiCatalogueImporter {
                 // Keep the historical ID for default currency while separating
                 // independent supply/price markets for alternative currencies.
                 String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
-                BigDecimal pricePerUnit = buy.divide(BigDecimal.valueOf(quantity), 8, RoundingMode.HALF_UP)
-                        .stripTrailingZeros();
+                // Sell-only offers use a derived reference valuation at the default
+                // 15% market spread, but cannot be purchased by players.
+                BigDecimal referenceBuy = canBuy ? buy
+                        : sell.divide(new BigDecimal("0.15"), 8, RoundingMode.HALF_UP);
+                BigDecimal pricePerUnit = referenceBuy.divide(BigDecimal.valueOf(quantity), 8,
+                        RoundingMode.HALF_UP).stripTrailingZeros();
                 if (pricePerUnit.signum() <= 0)
                     throw new IOException("Calculated market price is zero at " + where);
                 // Preserve each legacy offer's initial sell-to-buy ratio.
                 // Ratios are bounded below 1.0 to prevent baseline round-trip inflation.
-                BigDecimal sellRatio = sell.divide(buy, 12, RoundingMode.HALF_UP);
-                if (sellRatio.signum() <= 0 || sellRatio.compareTo(BigDecimal.ONE) >= 0)
-                    throw new IOException("Unsafe or disabled sell ratio at " + where);
+                BigDecimal sellRatio = !canSell ? null
+                        : canBuy ? sell.divide(buy, 12, RoundingMode.HALF_UP) : new BigDecimal("0.15");
+                if (sellRatio != null && (sellRatio.signum() <= 0
+                        || sellRatio.compareTo(BigDecimal.ONE) >= 0))
+                    throw new IOException("Unsafe sell ratio at " + where);
                 MarketDefinition current = markets.get(marketId);
                 if (current == null) {
                     markets.put(marketId, new MarketDefinition(marketId, itemCurrency, pricePerUnit,
@@ -151,7 +174,8 @@ public final class ShopGuiCatalogueImporter {
                             + " in " + where + ": " + current.basePrice() + " vs " + pricePerUnit);
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
-                        quantity, page, slot, buy, sell, marketId, sellRatio));
+                        quantity, page, slot, buy, sell, marketId, sellRatio,
+                        canBuy, canSell, permission, displayName, displayLore));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
                     fillerMaterial, fillerName, offers));
