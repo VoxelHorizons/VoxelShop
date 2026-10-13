@@ -6,6 +6,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
 import org.voxelhorizons.shop.catalog.MainMenuLayout;
 import org.voxelhorizons.shop.catalog.MainMenuImporter;
+import org.voxelhorizons.shop.catalog.WorthStore;
 import org.voxelhorizons.shop.catalog.ShopGuiCatalogueImporter;
 import org.voxelhorizons.shop.market.MarketDefinition;
 import org.voxelhorizons.shop.market.MarketEngine;
@@ -22,6 +23,7 @@ import java.util.Locale;
 public final class VoxelShop extends JavaPlugin {
     private ImportedCatalog catalog;
     private MainMenuLayout mainMenu;
+    private WorthStore worth = WorthStore.empty();
     private volatile boolean catalogueValid;
     private MarketEngine market;
     private VaultUnlockedBridge economy;
@@ -114,6 +116,11 @@ public final class VoxelShop extends JavaPlugin {
             menuSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "config.yml");
         MainMenuLayout parsedMenu = Files.isRegularFile(menuSource)
                 ? MainMenuImporter.read(menuSource) : null;
+        Path worthSource = getDataFolder().toPath().resolve("worth.yml");
+        if (!Files.isRegularFile(worthSource))
+            worthSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "worth.yml");
+        WorthStore importedWorth = WorthStore.read(worthSource);
+        this.worth = importedWorth;
         this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
@@ -127,6 +134,7 @@ public final class VoxelShop extends JavaPlugin {
     public boolean catalogueValid() { return catalogueValid; }
     public ImportedCatalog catalog() { return catalog; }
     public MainMenuLayout mainMenu() { return mainMenu; }
+    public WorthStore worth() { return worth; }
     public MarketEngine market() { return market; }
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }

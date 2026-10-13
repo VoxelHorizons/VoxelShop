@@ -10,6 +10,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -93,6 +95,58 @@ public final class ShopCommand implements CommandExecutor, TabCompleter {
             }
             return true;
         }
+        if (args.length > 0 && "worth".equalsIgnoreCase(args[0])) {
+            if (!sender.hasPermission("voxelshop.worth")) {
+                sender.sendMessage(ChatColor.RED + "No permission."); return true;
+            }
+            try {
+                String name;
+                int amount = 1;
+                if (args.length < 2 || "hand".equalsIgnoreCase(args[1])) {
+                    if (!(sender instanceof Player player)) {
+                        sender.sendMessage("Provide a material: /vshop worth <material> [quantity]");
+                        return true;
+                    }
+                    ItemStack held = player.getInventory().getItemInMainHand();
+                    name = held.getType().name();
+                    amount = held.getAmount();
+                } else {
+                    name = args[1];
+                }
+                if (args.length >= 3) amount = Integer.parseInt(args[2]);
+                if (amount < 1 || amount > 4096)
+                    throw new IllegalArgumentException("Quantity must be between 1 and 4096");
+                Material material = Material.matchMaterial(name);
+                if (material == null || !material.isItem())
+                    throw new IllegalArgumentException("Unsupported material " + name);
+                int quantity = amount;
+                plugin.worth().price(material.name()).ifPresentOrElse(
+                        value -> sender.sendMessage(ChatColor.YELLOW + material.name() + " reference worth: "
+                                + value.multiply(BigDecimal.valueOf(quantity)).toPlainString()
+                                + " for " + quantity + " items (not a guaranteed trade quote)"),
+                        () -> sender.sendMessage(ChatColor.GRAY + "No static worth entry for "
+                                + material.name() + " in worth.yml"));
+            } catch (RuntimeException invalid) {
+                sender.sendMessage(ChatColor.RED + "Worth query rejected: " + invalid.getMessage());
+            }
+            return true;
+        }
+        if (args.length > 0 && "check".equalsIgnoreCase(args[0])) {
+            if (!sender.hasPermission("voxelshop.admin")) {
+                sender.sendMessage(ChatColor.RED + "No permission."); return true;
+            }
+            sender.sendMessage(ChatColor.YELLOW + "VoxelShop: " + plugin.catalog().shops().size()
+                    + " shops, " + plugin.catalog().markets().size() + " markets, "
+                    + plugin.worth().size() + " static worth entries, trading "
+                    + (plugin.trades().ready() ? "enabled" : "disabled"));
+            if (args.length >= 2) {
+                var shop = plugin.catalog().shops().get(args[1].toLowerCase(Locale.ROOT));
+                if (shop == null) sender.sendMessage(ChatColor.RED + "Unknown shop: " + args[1]);
+                else sender.sendMessage(ChatColor.GRAY + "Shop " + shop.id() + ": "
+                        + shop.offers().size() + " entries, currency " + shop.currency());
+            }
+            return true;
+        }
         if (!(sender instanceof Player)) {
             sender.sendMessage("Only players can open the shop UI.");
             return true;
@@ -133,9 +187,11 @@ public final class ShopCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("voxelshop.admin") && "reload".startsWith(args[0].toLowerCase(Locale.ROOT)))
                 result.add("reload");
             if (sender.hasPermission("voxelshop.admin")) {
-                for (String admin : new String[]{"pending", "reconcile", "modifier"})
+                for (String admin : new String[]{"pending", "reconcile", "modifier", "check"})
                     if (admin.startsWith(args[0].toLowerCase(Locale.ROOT))) result.add(admin);
             }
+            if ("worth".startsWith(args[0].toLowerCase(Locale.ROOT))
+                    && sender.hasPermission("voxelshop.worth")) result.add("worth");
             return result;
         }
         if (args.length == 2 && "modifier".equalsIgnoreCase(args[0])

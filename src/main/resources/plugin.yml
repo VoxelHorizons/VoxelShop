@@ -14,6 +14,8 @@ commands:
     aliases: [ssell]
     permission: voxelshop.use
 permissions:
+  voxelshop.worth:
+    default: true
   voxelshop.sell.hand:
     default: true
   voxelshop.sell.handall:
