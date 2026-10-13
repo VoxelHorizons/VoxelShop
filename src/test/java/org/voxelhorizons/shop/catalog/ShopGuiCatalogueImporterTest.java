@@ -194,7 +194,7 @@ class ShopGuiCatalogueImporterTest {
                 + "  name: 'Compact'\n"
                 + "  size: 27\n"
                 + "  buttons:\n"
-                + "    goBack: {slot: 18}\n"
+                + "    goBack: {slot: 18, item: {material: NETHER_STAR, name: '&cReturn', lore: ['&7Back']}}\n"
                 + "    previousPage: {slot: -1}\n"
                 + "    nextPage: {slot: 26}\n"
                 + "  clickActions: {LEFT: SELL, RIGHT: BUY_GUI, SHIFT_RIGHT: NONE}\n"
@@ -203,6 +203,9 @@ class ShopGuiCatalogueImporterTest {
         var shop = importShops().shops().get("compact");
         assertEquals(27, shop.size());
         assertEquals(18, shop.buttonSlot("goBack", 0));
+        assertEquals("NETHER_STAR", shop.buttonIcon("goBack").material());
+        assertEquals("&cReturn", shop.buttonIcon("goBack").name());
+        assertEquals(java.util.List.of("&7Back"), shop.buttonIcon("goBack").lore());
         assertEquals(-1, shop.buttonSlot("previousPage", 18));
         assertEquals("SELL", shop.clickActions().get("LEFT"));
         assertEquals("BUY_GUI", shop.clickActions().get("RIGHT"));
