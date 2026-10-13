@@ -47,6 +47,8 @@ public final class TradeCoordinator {
     public synchronized String trade(Player player, String shopId, ImportedCatalog.Offer offer,
                                      MarketQuote.Side side, int quantity) {
         if (!Bukkit.isPrimaryThread()) return "Trading must run on the server thread.";
+        if (!player.isOnline() || player.isDead())
+            return "You must be alive and online to trade.";
         if (!ready()) return "Trading is disabled, or an unresolved transaction needs staff review.";
         ImportedCatalog.Shop shop = plugin.catalog().shops().get(shopId);
         if (shop == null || !shop.offers().contains(offer) || !"item".equals(offer.type()))

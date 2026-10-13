@@ -1,7 +1,7 @@
 # Default is SAFE: enable only after testing on a backed-up Paper 26.2 server.
 economy:
   default-currency: coins
-  # Used ONLY when no modern vault2 provider is registered, usually EssentialsX.
+  # Route Coins to legacy Vault (EssentialsX), even if Vault2 manages tokens.
   legacy-currency: coins
 market:
   target-stock: 1000

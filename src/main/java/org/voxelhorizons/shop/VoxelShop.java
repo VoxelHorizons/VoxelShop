@@ -56,7 +56,7 @@ public final class VoxelShop extends JavaPlugin {
         if (sellCommand != null) sellCommand.setExecutor(new SellCommand(this));
 
         if (!economy.available())
-            getLogger().warning("No VaultUnlocked vault2 Economy provider found: shop browsing works, trading is disabled.");
+            getLogger().warning("No Vault or Vault2 economy provider found: browsing works but trading is unavailable.");
         try {
             long unresolved = journal.unresolved().size();
             if (unresolved > 0) getLogger().severe("TRADING LOCKED: " + unresolved

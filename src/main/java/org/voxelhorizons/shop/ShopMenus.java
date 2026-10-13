@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -30,6 +31,7 @@ import java.util.Map;
  */
 public final class ShopMenus implements Listener {
     private final VoxelShop plugin;
+    private final Map<java.util.UUID, Long> lastTradeClick = new HashMap<>();
 
     public ShopMenus(VoxelShop plugin) { this.plugin = plugin; }
 
@@ -40,6 +42,8 @@ public final class ShopMenus implements Listener {
         holder.inventory = inventory;
         int slot = 0;
         for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
+            if (!player.hasPermission("voxelshop.shop." + shop.id())
+                    && !player.hasPermission("voxelshop.shop.*")) continue;
             if (slot >= 54) break;
             ItemStack icon = item(Material.CHEST, ChatColor.GOLD + shop.title(),
                     Arrays.asList(ChatColor.GRAY + "Click to browse", ChatColor.DARK_GRAY + shop.id()));
@@ -121,7 +125,7 @@ public final class ShopMenus implements Listener {
             holder.offerClicks.put(slot, offer);
         }
 
-        if (inventory.getItem(0) == null || fill == Material.AIR || !holder.offerClicks.containsKey(0)) {
+        if (!holder.offerClicks.containsKey(0) && inventory.getItem(0) == null) {
             inventory.setItem(0, item(Material.ARROW, ChatColor.YELLOW + "Shop categories",
                     java.util.Collections.singletonList(ChatColor.GRAY + "Return to the shop list")));
             holder.navigation.put(0, 0);
@@ -189,8 +193,14 @@ public final class ShopMenus implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder() instanceof Holder)) return;
+        // Never turn events previously cancelled by protections into payment attempts.
+        boolean previouslyCancelled = event.isCancelled();
         event.setCancelled(true);
+        if (previouslyCancelled) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
+        ClickType click = event.getClick();
+        if (click != ClickType.LEFT && click != ClickType.RIGHT
+                && click != ClickType.SHIFT_LEFT && click != ClickType.SHIFT_RIGHT) return;
         if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
         Player player = (Player) event.getWhoClicked();
         Holder holder = (Holder) event.getView().getTopInventory().getHolder();
@@ -209,11 +219,13 @@ public final class ShopMenus implements Listener {
             if (event.isShiftClick()) {
                 Bukkit.getScheduler().runTask(plugin, () -> openAmount(player, holder.shop, holder.page, offer, side));
             } else {
+                if (!canTradeClick(player)) return;
                 player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop, offer, side, offer.quantity()));
                 Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
             }
         } else if (holder.selectedOffer != null && holder.amountClicks.containsKey(slot)) {
             int quantity = holder.amountClicks.get(slot);
+            if (!canTradeClick(player)) return;
             player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop,
                     holder.selectedOffer, holder.selectedSide, quantity));
             Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
@@ -224,6 +236,15 @@ public final class ShopMenus implements Listener {
     public void onDrag(InventoryDragEvent event) {
         if (event.getView().getTopInventory().getHolder() instanceof Holder)
             event.setCancelled(true);
+    }
+
+    private boolean canTradeClick(Player player) {
+        // Prevent double-click/hotbar packet bursts from submitting multiple orders.
+        long now = System.nanoTime();
+        Long previous = lastTradeClick.get(player.getUniqueId());
+        if (previous != null && now - previous < 300_000_000L) return false;
+        lastTradeClick.put(player.getUniqueId(), now);
+        return true;
     }
 
     private static Material match(String name) {
