@@ -136,7 +136,7 @@ class ShopGuiCatalogueImporterTest {
         assertFalse(sell.canBuy());
         assertTrue(sell.canSell());
         assertNotNull(results.markets().get(sell.marketId()));
-        assertEquals(new BigDecimal("0.15"), sell.sellRatio());
+        assertEquals(0, new BigDecimal("0.15").compareTo(sell.sellRatio()));
     }
 
     @Test void sellOnlyOfferSharesMarketWithLaterBuyEnabledCategory() throws Exception {
