@@ -99,6 +99,18 @@ public final class MarketEngine {
     public synchronized int stock(String marketId) { return require(marketId).stock; }
     public synchronized long revision(String marketId) { return require(marketId).revision; }
 
+    /**
+     * Restore durable state only after matching the immutable market definition.
+     * Called at plugin startup, never from GUI input or arbitrary player commands.
+     */
+    public synchronized void restore(String marketId, int stock, long revision) {
+        State state = require(marketId);
+        if (stock < 0 || stock > state.definition.stockCapacity() || revision < 0)
+            throw new IllegalArgumentException("Invalid durable market state");
+        state.stock = stock;
+        state.revision = revision;
+    }
+
     private BigDecimal marginalPrice(MarketDefinition definition, long currentStock) {
         BigDecimal gap = BigDecimal.valueOf((long) definition.targetStock() - currentStock)
                 .divide(BigDecimal.valueOf(definition.targetStock()), MATH);
