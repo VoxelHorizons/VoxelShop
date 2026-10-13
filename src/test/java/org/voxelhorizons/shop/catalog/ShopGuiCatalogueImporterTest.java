@@ -110,9 +110,9 @@ class ShopGuiCatalogueImporterTest {
     }
 
     @Test void handlesOptionalVoxelCoreCustomItemIdentityWithoutMaterialConfusion() throws Exception {
-        write("custom.yml", "custom:\\n  items:\\n"
-                + "    one: {type: item, item: {voxelcore: 'voxel:watering_can', quantity: 1}, buyPrice: 50, sellPrice: 5, slot: 10}\\n"
-                + "    two: {type: item, item: {material: PAPER}, buyPrice: 10, sellPrice: 1, slot: 11}\\n");
+        write("custom.yml", "custom:\n  items:\n"
+                + "    one: {type: item, item: {voxelcore: 'voxel:watering_can', quantity: 1}, buyPrice: 50, sellPrice: 5, slot: 10}\n"
+                + "    two: {type: item, item: {material: PAPER}, buyPrice: 10, sellPrice: 1, slot: 11}\n");
         ImportedCatalog result = importShops();
         assertTrue(result.markets().containsKey("voxelitem:voxel:watering_can"));
         assertTrue(result.markets().containsKey("minecraft:paper"));
