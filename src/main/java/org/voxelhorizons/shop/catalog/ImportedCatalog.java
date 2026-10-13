@@ -58,6 +58,7 @@ public final class ImportedCatalog {
         private final boolean buyEnabled, sellEnabled;
         private final String permission, displayName;
         private final List<String> displayLore;
+        private final ShopItemMetadata itemMetadata;
 
         Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
               BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio) {
@@ -69,6 +70,16 @@ public final class ImportedCatalog {
               BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio,
               boolean buyEnabled, boolean sellEnabled, String permission, String displayName,
               List<String> displayLore) {
+            this(id, type, materialOrSpecial, quantity, page, slot, baselineBuy, baselineSell, marketId,
+                    sellRatio, buyEnabled, sellEnabled, permission, displayName, displayLore,
+                    ShopItemMetadata.plain());
+        }
+
+        Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
+              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio,
+              boolean buyEnabled, boolean sellEnabled, String permission, String displayName,
+              List<String> displayLore, ShopItemMetadata itemMetadata) {
+            this.itemMetadata = java.util.Objects.requireNonNull(itemMetadata);
             this.buyEnabled = buyEnabled;
             this.sellEnabled = sellEnabled;
             this.permission = permission;
@@ -100,5 +111,6 @@ public final class ImportedCatalog {
         public String permission() { return permission; }
         public String displayName() { return displayName; }
         public List<String> displayLore() { return displayLore; }
+        public ShopItemMetadata itemMetadata() { return itemMetadata; }
     }
 }

@@ -115,6 +115,7 @@ public final class ShopGuiCatalogueImporter {
                     if (!material.matches("[A-Z0-9_]+"))
                         throw new IOException("Invalid material at " + where);
                 }
+                ShopItemMetadata itemMetadata = ShopItemMetadata.read(stack, where + ".item", customId != null);
                 int quantity = integer(stack.containsKey("quantity") ? stack.get("quantity") : 1, where + ".quantity");
                 if (quantity < 1 || quantity > 64) throw new IOException("Invalid item quantity at " + where);
                 // Missing or negative prices disable that trade direction; never trade for free.
@@ -146,6 +147,7 @@ public final class ShopGuiCatalogueImporter {
                     throw new IOException("Invalid offer currency at " + where);
                 String materialId = customId == null ? "minecraft:" + material.toLowerCase(Locale.ROOT)
                         : "voxelitem:" + customId;
+                if (!itemMetadata.isPlain()) materialId += ".meta_" + itemMetadata.fingerprint();
                 // Keep the historical ID for default currency while separating
                 // independent supply/price markets for alternative currencies.
                 String marketId = itemCurrency.equals(currency) ? materialId : itemCurrency + ":" + materialId;
@@ -178,7 +180,7 @@ public final class ShopGuiCatalogueImporter {
                 }
                 offers.add(new ImportedCatalog.Offer(offerId, type, material,
                         quantity, page, slot, buy, sell, marketId, sellRatio,
-                        canBuy, canSell, permission, displayName, displayLore));
+                        canBuy, canSell, permission, displayName, displayLore, itemMetadata));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
                     fillerMaterial, fillerName, offers));
@@ -204,7 +206,8 @@ public final class ShopGuiCatalogueImporter {
                 offers.add(new ImportedCatalog.Offer(offer.id(), offer.type(),
                         offer.materialOrSpecial(), offer.quantity(), offer.page(), offer.slot(),
                         offer.baselineBuy(), offer.baselineSell(), offer.marketId(), ratio,
-                        false, true, offer.permission(), offer.displayName(), offer.displayLore()));
+                        false, true, offer.permission(), offer.displayName(), offer.displayLore(),
+                        offer.itemMetadata()));
             }
             normalized.put(shop.id(), new ImportedCatalog.Shop(shop.id(), shop.title(), shop.currency(),
                     shop.fillerMaterial(), shop.fillerName(), offers));
