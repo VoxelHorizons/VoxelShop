@@ -171,7 +171,9 @@ public final class ShopGuiCatalogueImporter {
                     if (amount < 1 || amount > 64) throw new IOException("Invalid dummy quantity at " + where);
                     String name = decor.get("name") == null ? null : String.valueOf(decor.get("name"));
                     java.util.List<String> lore = metadata.lore();
-                    String permission = item.get("permission") == null ? null : String.valueOf(item.get("permission"));
+                    String permission = item.get("permission") == null
+                            ? enabledPerItemPermissions ? "shopguiplus.item." + shopId + "." + offerId : null
+                            : String.valueOf(item.get("permission"));
                     if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
                         throw new IOException("Invalid dummy permission at " + where);
                     offers.add(new ImportedCatalog.Offer(offerId, type, material, amount,
