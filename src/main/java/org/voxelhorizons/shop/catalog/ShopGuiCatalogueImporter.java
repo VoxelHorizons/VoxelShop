@@ -51,6 +51,7 @@ public final class ShopGuiCatalogueImporter {
 
         Map<String, ImportedCatalog.Shop> shops = new LinkedHashMap<>();
         Map<String, MarketDefinition> markets = new LinkedHashMap<>();
+        Set<String> authoritativeBuyMarkets = new HashSet<>();
         for (Path source : sources) {
             LoaderOptions options = new LoaderOptions();
             options.setAllowDuplicateKeys(false);
@@ -164,12 +165,14 @@ public final class ShopGuiCatalogueImporter {
                         || sellRatio.compareTo(BigDecimal.ONE) >= 0))
                     throw new IOException("Unsafe sell ratio at " + where);
                 MarketDefinition current = markets.get(marketId);
-                if (current == null) {
+                if (current == null || canBuy && !authoritativeBuyMarkets.contains(marketId)) {
                     markets.put(marketId, new MarketDefinition(marketId, itemCurrency, pricePerUnit,
                             targetStock, targetStock, capacity, sellRatio));
-                } else if (current.basePrice().compareTo(pricePerUnit) != 0) {
-                    // A single material can have the same buy price but a different
-                    // per-shop sell margin. Stock remains shared; sell margin does not.
+                    if (canBuy) authoritativeBuyMarkets.add(marketId);
+                } else if (canBuy && current.basePrice().compareTo(pricePerUnit) != 0) {
+                    // Only conflicting authoritative BUY valuations are unsafe.
+                    // A sell-only offer's derived baseline must not overwrite a
+                    // separate buy-enabled market for the same item/currency.
                     throw new IOException("Conflicting buy baseline for global market " + marketId
                             + " in " + where + ": " + current.basePrice() + " vs " + pricePerUnit);
                 }
@@ -180,7 +183,33 @@ public final class ShopGuiCatalogueImporter {
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
                     fillerMaterial, fillerName, offers));
         }
-        return new ImportedCatalog(shops, markets);
+        // Normalize sell-only margins only after every shop is imported.
+        // This preserves original sell payouts when an authoritative BUY
+        // baseline for that material was encountered in another shop/file.
+        Map<String, ImportedCatalog.Shop> normalized = new LinkedHashMap<>();
+        for (ImportedCatalog.Shop shop : shops.values()) {
+            List<ImportedCatalog.Offer> offers = new ArrayList<>();
+            for (ImportedCatalog.Offer offer : shop.offers()) {
+                if (!"item".equals(offer.type()) || offer.canBuy() || !offer.canSell()) {
+                    offers.add(offer);
+                    continue;
+                }
+                MarketDefinition reference = markets.get(offer.marketId());
+                BigDecimal referenceTotal = reference.basePrice()
+                        .multiply(BigDecimal.valueOf(offer.quantity()));
+                BigDecimal ratio = offer.baselineSell().divide(referenceTotal, 12, RoundingMode.HALF_UP);
+                if (ratio.signum() <= 0 || ratio.compareTo(BigDecimal.ONE) >= 0)
+                    throw new IOException("Sell-only payout would exceed or equal reference BUY valuation: "
+                            + shop.id() + "." + offer.id());
+                offers.add(new ImportedCatalog.Offer(offer.id(), offer.type(),
+                        offer.materialOrSpecial(), offer.quantity(), offer.page(), offer.slot(),
+                        offer.baselineBuy(), offer.baselineSell(), offer.marketId(), ratio,
+                        false, true, offer.permission(), offer.displayName(), offer.displayLore()));
+            }
+            normalized.put(shop.id(), new ImportedCatalog.Shop(shop.id(), shop.title(), shop.currency(),
+                    shop.fillerMaterial(), shop.fillerName(), offers));
+        }
+        return new ImportedCatalog(normalized, markets);
     }
 
     private static Map<?, ?> mapping(Object raw, String where) throws IOException {
