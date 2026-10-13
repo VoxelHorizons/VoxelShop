@@ -22,7 +22,7 @@ class WorthStoreTest {
                 """);
         WorthStore store = WorthStore.read(source);
         assertEquals(2, store.size());
-        assertEquals(new BigDecimal("2.50"), store.price("oak_log").orElseThrow());
+        assertEquals(0, new BigDecimal("2.50").compareTo(store.price("oak_log").orElseThrow()));
         assertTrue(store.price("minecraft:diamond").isPresent());
         assertTrue(store.price("bedrock").isEmpty());
     }
