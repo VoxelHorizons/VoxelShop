@@ -1,0 +1,29 @@
+name: VoxelShop
+version: 0.2.0-SNAPSHOT
+main: org.voxelhorizons.shop.VoxelShop
+api-version: '26.2'
+description: Independent multi-currency dynamic shop for VoxelHorizons
+softdepend: [Vault, PlaceholderAPI, VoxelCore]
+commands:
+  vshop:
+    description: Opens VoxelShop
+    aliases: [shop, shopgui, guishop]
+    permission: voxelshop.use
+  sell:
+    description: Sell the held item or ordinary inventory items
+    aliases: [ssell]
+    permission: voxelshop.use
+permissions:
+  voxelshop.sell.hand:
+    default: true
+  voxelshop.sell.handall:
+    default: true
+  voxelshop.sell.all:
+    default: true
+  voxelshop.use:
+    default: true
+  voxelshop.admin:
+    default: op
+  voxelshop.shop.*:
+    description: Access all configured shop categories
+    default: true

@@ -1,9 +1,8 @@
-name: Build and test VoxelShop foundation
+name: Build and test VoxelShop
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -14,12 +13,19 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: maven
       - name: Compile and run tests
         run: mvn --batch-mode --no-transfer-progress clean verify
-      - name: Upload library artifact
+      - name: Verify Paper 26.2 plugin metadata
+        run: |
+          set -euo pipefail
+          jar_file=$(compgen -G 'target/VoxelShop-*-mc26.2.jar' | head -n 1)
+          test -n "$jar_file"
+          unzip -p "$jar_file" plugin.yml | grep -Fx "api-version: '26.2'"
+          unzip -l "$jar_file" 'org/voxelhorizons/shop/VoxelShop.class' | grep 'VoxelShop.class'
+      - name: Upload server plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoxelShop-foundation
-          path: target/*.jar
+          name: VoxelShop-mc26.2
+          path: target/VoxelShop-*-mc26.2.jar

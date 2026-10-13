@@ -32,7 +32,16 @@ public final class MarketEngine {
     }
 
     public synchronized MarketQuote quote(String marketId, MarketQuote.Side side, int quantity) {
+        return quote(marketId, side, quantity, null);
+    }
+
+    /** A shop can have an independently configured margin on one shared supply market. */
+    public synchronized MarketQuote quote(String marketId, MarketQuote.Side side, int quantity,
+                                           BigDecimal offerSellRatio) {
         State state = require(marketId);
+        if (offerSellRatio != null && (offerSellRatio.signum() <= 0
+                || offerSellRatio.compareTo(BigDecimal.ONE) >= 0))
+            throw new IllegalArgumentException("Unsafe offer sell ratio");
         Objects.requireNonNull(side, "side");
         if (quantity < 1 || quantity > policy.maxOrder()) {
             throw new IllegalArgumentException("Order quantity is outside configured bounds");
@@ -52,7 +61,10 @@ public final class MarketEngine {
                     ? state.stock - i : (long) state.stock + i + 1;
             BigDecimal price = marginalPrice(state.definition, marginalStock);
             if (side == MarketQuote.Side.SELL) {
-                price = price.multiply(policy.sellRatio(), MATH);
+                BigDecimal sellRatio = offerSellRatio != null ? offerSellRatio
+                        : state.definition.sellRatioOverride() == null
+                        ? policy.sellRatio() : state.definition.sellRatioOverride();
+                price = price.multiply(sellRatio, MATH);
             }
             total = total.add(price, MATH);
         }
@@ -61,7 +73,7 @@ public final class MarketEngine {
         total = total.setScale(policy.priceScale(), rounding);
         if (total.signum() <= 0) throw new IllegalStateException("Order rounds to zero");
         return new MarketQuote(marketId, state.definition.currency(), side,
-                quantity, state.revision, total);
+                quantity, state.revision, total, offerSellRatio);
     }
 
     public synchronized boolean isCurrent(MarketQuote quote) {
@@ -69,7 +81,7 @@ public final class MarketEngine {
         State state = markets.get(quote.marketId());
         return state != null && state.revision == quote.revision()
                 && state.definition.currency().equals(quote.currency())
-                && quote.total().equals(quote(quote.marketId(), quote.side(), quote.quantity()).total());
+                && quote.total().equals(quote(quote.marketId(), quote.side(), quote.quantity(), quote.offerSellRatio()).total());
     }
 
     /**
@@ -86,6 +98,18 @@ public final class MarketEngine {
 
     public synchronized int stock(String marketId) { return require(marketId).stock; }
     public synchronized long revision(String marketId) { return require(marketId).revision; }
+
+    /**
+     * Restore durable state only after matching the immutable market definition.
+     * Called at plugin startup, never from GUI input or arbitrary player commands.
+     */
+    public synchronized void restore(String marketId, int stock, long revision) {
+        State state = require(marketId);
+        if (stock < 0 || stock > state.definition.stockCapacity() || revision < 0)
+            throw new IllegalArgumentException("Invalid durable market state");
+        state.stock = stock;
+        state.revision = revision;
+    }
 
     private BigDecimal marginalPrice(MarketDefinition definition, long currentStock) {
         BigDecimal gap = BigDecimal.valueOf((long) definition.targetStock() - currentStock)
