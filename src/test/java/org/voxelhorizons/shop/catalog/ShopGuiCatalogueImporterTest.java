@@ -251,6 +251,21 @@ class ShopGuiCatalogueImporterTest {
         assertTrue(catalog.shops().get("a").offers().get(0).itemMetadata().isPlain());
     }
 
+    @Test void importsDecorativeDummyButNeverCreatesTradeMarket() throws Exception {
+        write("decor.yml", "decor:\n  enablePerItemPermissions: true\n  items:\n"
+                + "    banner: {type: dummy, item: {material: PAPER, quantity: 1, name: '&bInformation', lore: ['&7Welcome!']}, slot: 13}\n"
+                + "    product: {type: item, item: {material: BREAD}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        var dummy = catalog.shops().get("decor").offers().get(0);
+        assertEquals("dummy", dummy.type());
+        assertFalse(dummy.canBuy());
+        assertFalse(dummy.canSell());
+        assertEquals("shopguiplus.item.decor.banner", dummy.permission());
+        assertNull(dummy.marketId());
+        assertEquals("&bInformation", dummy.itemMetadata().name());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
