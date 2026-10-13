@@ -92,6 +92,9 @@ economy and authored configs. `trading.enabled` stays **false** by default.
   scheme remain in `market-state.properties` and are listed as inactive
   markets on startup. They are **not silently deleted**. Partial or corrupt
   saved records for active markets fail closed.
+- **Decorative offers:** Supports price-free `type: dummy` items, including
+  custom name/lore and legacy permissions; these are display-only and cannot
+  become payable trades.
 - **Shop menus:** Supports a shop's own `size: 9..54`, `buttons` navigation
   slots and button item/material/title/lore, and per-shop `clickActions`.
   Global click defaults continue to apply when not overridden.
@@ -107,7 +110,9 @@ plugin-authored ItemStack roundtrips identically. Item-component formats
 from other plugins, custom potion effects, banners, fireworks, skull texture
 providers and full ShopGUIPlus item providers are not yet supported.
 Invalid unsupported YAML stops catalogue loading rather than creating
-incorrect items. Trading remains disabled by default.
+incorrect items. Trading remains disabled by default. Linux flushes directory metadata after
+atomic state-file writes; Windows uses a forced file write plus atomic rename
+because Java cannot reliably open Windows directories for `FileChannel.force`.
 
 ## Install for staging
 

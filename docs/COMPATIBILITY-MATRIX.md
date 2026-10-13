@@ -18,7 +18,7 @@ independent implementation with its own API and design.
 | Per-offer original sell margins | Implemented | Same material across multiple category offers |
 | Item providers / custom items | Partial: exact VoxelCore templates | Modifiable tints, non-VoxelCore items, provider reloads |
 | Advanced click actions and per-shop GUI layout | Partial: per-shop size, click overrides, navigation slots/icons and imported category GUI | Complex permission/command buttons and effects still missing |
-| Shop links, special GUI elements | Partial (balance display) | Full special-element import |
+| Shop links, special GUI elements | Partial: balance and non-tradable decorative dummy offers | Shop links, advanced command/action and other special elements |
 | Bulk quantity selection | Implemented +/-1/10, set 1/max and on-item live price | Advanced bulk menus, quick-repeat settings and custom controls |
 | Shop permissions | Partial: explicit offer nodes plus legacy enablePerItemPermissions migration | Global access/rank bypass policy validation |
 | Price modifiers (permission and command) | Partial: persisted per-player exact/wildcard plus priority-ranked LuckPerms permission tiers | Expiry, player-specific legacy migration and full vendor command syntax remain |

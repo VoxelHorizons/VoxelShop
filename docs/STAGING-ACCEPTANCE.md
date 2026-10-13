@@ -104,3 +104,14 @@ not be represented as 100% vendor parity.
   specific shop/offer at startup, rather than silently producing plain items.
 - Verify shop-specific navigation slots/icon appearance, per-shop click
   mappings, and `enablePerItemPermissions: true` inherited LuckPerms nodes.
+
+## Windows versus Linux durable state checks
+
+- On Windows Paper staging, confirm trades/journal saves do not fail on an
+  unsupported directory `FileChannel.open` operation. Java forces file data
+  before an atomic rename, but Windows cannot provide the same portable
+  directory fsync guarantees available on Linux.
+- On Linux, confirm directory fsync errors still halt ambiguous transactions;
+  never suppress genuine filesystem I/O failures.
+- Confirm display-only `type: dummy` items neither create economy markets
+  nor respond to purchase/sale clicks even with crafted client packets.
