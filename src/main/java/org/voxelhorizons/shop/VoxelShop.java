@@ -106,7 +106,7 @@ public final class VoxelShop extends JavaPlugin {
             for (ImportedCatalog.Offer offer : shop.offers()) {
                 if (!"item".equals(offer.type())
                         || offer.materialOrSpecial().startsWith("voxelcore:")) continue;
-                try { itemFactory.create(offer, 1); }
+                try { itemFactory.create(offer, offer.quantity()); }
                 catch (RuntimeException invalid) {
                     throw new IllegalStateException("Invalid shop item template "
                             + shop.id() + "." + offer.id() + ": " + invalid.getMessage(), invalid);
