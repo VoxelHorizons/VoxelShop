@@ -154,6 +154,41 @@ class ShopGuiCatalogueImporterTest {
         assertFalse(seller.canBuy());
     }
 
+    @Test void isolatesEnchantedItemMarketFromUnmodifiedVanillaMaterial() throws Exception {
+        write("weapons.yml", "weapons:\n  items:\n"
+                + "    plain: {type: item, item: {material: DIAMOND_SWORD}, buyPrice: 50, sellPrice: 5, slot: 10}\n"
+                + "    premium: {type: item, item: {material: DIAMOND_SWORD, enchantments: ['SHARPNESS:5'], unbreakable: true, name: '&6Excalibur'}, buyPrice: 5000, sellPrice: 500, slot: 11}\n");
+        ImportedCatalog snapshot = importShops();
+        assertEquals(2, snapshot.markets().size());
+        var plain = snapshot.shops().get("weapons").offers().get(0);
+        var premium = snapshot.shops().get("weapons").offers().get(1);
+        assertEquals("minecraft:diamond_sword", plain.marketId());
+        assertNotEquals(plain.marketId(), premium.marketId());
+        assertTrue(premium.marketId().startsWith("minecraft:diamond_sword.meta_"));
+        assertEquals(5, premium.itemMetadata().enchantments().get("SHARPNESS"));
+        assertTrue(premium.itemMetadata().unbreakable());
+        assertEquals("&6Excalibur", premium.itemMetadata().name());
+        assertTrue(plain.itemMetadata().isPlain());
+    }
+
+    @Test void stableIdentityDeduplicatesEquivalentEnchantmentOrder() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    premium: {type: item, item: {material: DIAMOND_PICKAXE, enchantments: ['EFFICIENCY:5', 'UNBREAKING:3']}, buyPrice: 1000, sellPrice: 100, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    premium: {type: item, item: {material: DIAMOND_PICKAXE, enchantments: ['UNBREAKING:3', 'EFFICIENCY:5']}, buyPrice: 1000, sellPrice: 150, slot: 10}\n");
+        var result = importShops();
+        assertEquals(1, result.markets().size());
+        assertEquals(result.shops().get("a").offers().get(0).marketId(),
+                     result.shops().get("b").offers().get(0).marketId());
+    }
+
+    @Test void refusesUnknownComponentInsteadOfDeliveringWrongItem() throws Exception {
+        write("invalid.yml", "invalid:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND, secretItemData: some_value}, buyPrice: 1000, sellPrice: 10, slot: 10}\n");
+        var rejected = assertThrows(IOException.class, this::importShops);
+        assertTrue(rejected.getMessage().contains("Unsupported item metadata key"));
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
