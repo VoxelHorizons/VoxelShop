@@ -19,9 +19,9 @@ independent implementation with its own API and design.
 | Item providers / custom items | Partial: exact VoxelCore templates | Modifiable tints, non-VoxelCore items, provider reloads |
 | Advanced click actions and per-shop GUI layout | Partial: configurable buy/sell/sell-all/amount GUI, imported category icons | Complex custom actions, buttons and bulk UI still missing |
 | Shop links, special GUI elements | Partial (balance display) | Full special-element import |
-| Bulk quantity selection | Partial (preset quantities) | Bulk amount GUI and custom amount controls |
+| Bulk quantity selection | Implemented +/-1/10, set 1/max and on-item live price | Advanced bulk menus, quick-repeat settings and custom controls |
 | Shop permissions | Partial | Per-offer permission, dynamic ranks, bypass rules |
-| Price modifiers (permission and command) | Partial: persisted per-player exact/wildcard modifiers with admin set/reset/check | Permission-based ranks, expiry and full legacy command syntax remain |
+| Price modifiers (permission and command) | Partial: persisted per-player exact/wildcard plus priority-ranked LuckPerms permission tiers | Expiry, player-specific legacy migration and full vendor command syntax remain |
 | /shop check, worth and price modifiers | Partial: /vshop check, worth and modifier management | Alias/legacy argument parity and advanced worth valuations |
 | Pre/post transaction events | Implemented independent VoxelShop cancellable prepare/completed events | Third-party integration testing and optional legacy adapters |
 | ShopGUIPlus external plugin API | Not implemented | Design independent API; bridge only as needed |
@@ -49,3 +49,10 @@ independent implementation with its own API and design.
 
 This document describes *functional differences*, not a promise of binary/API
 compatibility with the vendor's plugin.
+
+## Live staging acceptance
+
+See [STAGING-ACCEPTANCE.md](STAGING-ACCEPTANCE.md) for validation of
+actual Vault/Vault2 providers, VoxelCore items, dynamic prices, full click
+surface, controlled process crashes, disk journal integrity, and concurrency.
+Java unit tests or JAR compilation do not demonstrate production recovery.

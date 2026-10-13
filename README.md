@@ -30,12 +30,13 @@ JAR.** Current development: `0.3.0-SNAPSHOT`.
   names/lore, and independent buy-only/sell-only options. Missing or negative
   prices disable that direction; zero prices are rejected.
 - **Clicks:** `gui.click-actions` supports `BUY`, `SELL`, `SELL_ALL`,
-  `BUY_GUI`, `SELL_GUI`, and `NONE` for supported click types.
+  `BUY_GUI`, `SELL_GUI`, and `NONE`. The quantity GUI supports +/-1,
+  +/-10, set 1/max, a live price on the selected item, and separate confirmation.
   Bulk selling is bounded by `trading.max-sell-all-orders` and market capacity.
-- **Currency modifiers:** admin-controlled per-player and per-market multipliers
-  in `modifiers.properties`, including wildcard `*` markets. Calculations
-  affect displayed and charged values equally, are bounded, and guard against
-  obvious one-offer buy/sell round-trip arbitrage.
+- **Currency modifiers:** durable admin-controlled player/market multipliers,
+  wildcard `*` markets, and highest-priority permission-based ranks
+  (`modifiers.permission-tiers`). Multipliers affect GUI and wallet identically
+  and cross-shop ratio checks prevent buy/sell arbitrage, including at zero stock.
 - **Veto and audit hooks:** synchronous `VoxelShopTradePreEvent` (cancellable,
   before any mutation) and `VoxelShopTradeCompleteEvent` (after commit).
   These are VoxelShop APIs, **not binary replacements** for ShopGUIPlus events.
@@ -64,6 +65,9 @@ JAR.** Current development: `0.3.0-SNAPSHOT`.
 /vshop reload                                   (admin)
 /sell hand [quantity] | handall | all
 ```
+
+For the exact server-side test sequence see
+[Staging acceptance](docs/STAGING-ACCEPTANCE.md).
 
 **Still blocked from production certification:** provider-specific crash
 reconciliation, dynamic item variants and unsupported item types, advanced
