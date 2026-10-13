@@ -6,6 +6,8 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
+import org.voxelhorizons.shop.api.VoxelShopTradePreEvent;
+import org.voxelhorizons.shop.api.VoxelShopTradeCompleteEvent;
 import org.voxelhorizons.shop.market.MarketQuote;
 import org.voxelhorizons.shop.state.MarketSnapshotStore;
 import org.voxelhorizons.shop.state.TradeJournal;
@@ -113,6 +115,33 @@ public final class TradeCoordinator {
             }
         }
 
+        // Give installed integrations a veto BEFORE anything durable or
+        // external changes. Recheck invariants after callbacks to prevent
+        // handlers from swapping inventory, balances or quote revisions.
+        VoxelShopTradePreEvent before = new VoxelShopTradePreEvent(player, shopId,
+                offer.id(), side, quantity, quote.currency(), effectiveTotal);
+        try {
+            Bukkit.getPluginManager().callEvent(before);
+        } catch (RuntimeException error) {
+            plugin.getLogger().warning("Pre-trade listener failed: " + error);
+            return "Trade blocked because a pre-trade hook failed.";
+        }
+        if (before.isCancelled()) return "Trade cancelled by another plugin.";
+        if (!player.isOnline() || player.isDead() || !plugin.market().isCurrent(quote)
+                || plugin.modifiers().total(player.getUniqueId(), quote).compareTo(effectiveTotal) != 0)
+            return "Trade conditions changed; reopen the shop.";
+        if (side == MarketQuote.Side.BUY && !hasSpace(player, exact, quantity)
+                || side == MarketQuote.Side.SELL && count(player, exact) < quantity)
+            return "Inventory changed during trade preparation.";
+        if (side == MarketQuote.Side.BUY) {
+            try {
+                if (plugin.economy().balance(player, quote.currency()).compareTo(effectiveTotal) < 0)
+                    return "Insufficient " + quote.currency() + " after trade validation.";
+            } catch (RuntimeException error) {
+                return "Could not revalidate balance: " + error.getMessage();
+            }
+        }
+
         TradeJournal.Entry entry = null;
         try {
             entry = journal.begin(player.getUniqueId(), player.getWorld().getName(),
@@ -150,6 +179,15 @@ public final class TradeCoordinator {
                 entry.stage("STOCK_PERSISTED");
             }
             entry.finish();
+            try {
+                Bukkit.getPluginManager().callEvent(new VoxelShopTradeCompleteEvent(player, shopId,
+                        offer.id(), side, quantity, quote.currency(), effectiveTotal, entry.id()));
+            } catch (RuntimeException listenerError) {
+                // Money and inventory have ALREADY committed. A downstream
+                // listener failure must never reclassify a complete trade as
+                // ambiguous or encourage the player to retry.
+                plugin.getLogger().warning("Post-trade listener failed: " + listenerError);
+            }
             return (side == MarketQuote.Side.BUY ? "Purchased " : "Sold ") + quantity + " "
                     + material.name() + " for " + effectiveTotal.toPlainString() + " " + quote.currency() + ".";
         } catch (Exception exception) {
