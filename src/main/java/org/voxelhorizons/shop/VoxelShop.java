@@ -90,7 +90,15 @@ public final class VoxelShop extends JavaPlugin {
         int target = getConfig().getInt("market.target-stock", 1000);
         int capacity = getConfig().getInt("market.stock-capacity", 100000);
         ImportedCatalog imported = ShopGuiCatalogueImporter.read(source, currency, target, capacity);
-        MarketPolicy policy = MarketPolicy.defaults();
+        // Validate dynamic pricing explicitly; never silently fall back from
+        // an unsafe/malformed owner-supplied configuration.
+        MarketPolicy policy = new MarketPolicy(
+                priceDecimal("market.sensitivity", "0.35"),
+                priceDecimal("market.min-multiplier", "0.50"),
+                priceDecimal("market.max-multiplier", "2.00"),
+                priceDecimal("market.default-sell-ratio", "0.15"),
+                getConfig().getInt("market.max-order", 64),
+                getConfig().getInt("market.precision", 2));
         MarketEngine created = new MarketEngine(policy);
         for (MarketDefinition definition : imported.markets().values()) created.register(definition);
         snapshots.restore(created, imported.markets());
@@ -105,6 +113,10 @@ public final class VoxelShop extends JavaPlugin {
         this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
+    }
+
+    private java.math.BigDecimal priceDecimal(String key, String fallback) {
+        return new java.math.BigDecimal(String.valueOf(getConfig().get(key, fallback)));
     }
 
     public ImportedCatalog catalog() { return catalog; }

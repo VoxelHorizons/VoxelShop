@@ -6,6 +6,14 @@ economy:
 market:
   target-stock: 1000
   stock-capacity: 100000
+  # Marginal pricing moves with market inventory. min/max are safety limits.
+  # Changing values affects ALL markets; make a backup before reloading.
+  sensitivity: 0.35
+  min-multiplier: 0.50
+  max-multiplier: 2.00
+  default-sell-ratio: 0.15
+  max-order: 64
+  precision: 2
 trading:
   enabled: false
   max-sell-all-orders: 8
