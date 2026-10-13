@@ -196,19 +196,19 @@ public final class ShopMenus implements Listener {
         int previousSlot = shop.buttonSlot("previousPage", shop.size() - 9);
         int nextSlot = shop.buttonSlot("nextPage", shop.size() - 1);
         if (backSlot >= 0 && !holder.occupiedSlots.contains(backSlot)) {
-            inventory.setItem(backSlot, item(Material.ARROW, ChatColor.YELLOW + "Shop categories",
+            inventory.setItem(backSlot, navigationIcon(player, shop.buttonIcon("goBack"), "Shop categories",
                     List.of(ChatColor.GRAY + "Return to the shop list")));
             holder.navigation.put(backSlot, 0);
         }
         if (page > 1 && previousSlot >= 0 && !holder.occupiedSlots.contains(previousSlot)
                 && !holder.navigation.containsKey(previousSlot)) {
-            inventory.setItem(previousSlot, item(Material.ARROW, ChatColor.YELLOW + "Previous page",
+            inventory.setItem(previousSlot, navigationIcon(player, shop.buttonIcon("previousPage"), "Previous page",
                     List.of(ChatColor.GRAY + "Page " + (page - 1))));
             holder.navigation.put(previousSlot, -1);
         }
         if (nextPage && nextSlot >= 0 && !holder.occupiedSlots.contains(nextSlot)
                 && !holder.navigation.containsKey(nextSlot)) {
-            inventory.setItem(nextSlot, item(Material.ARROW, ChatColor.YELLOW + "Next page",
+            inventory.setItem(nextSlot, navigationIcon(player, shop.buttonIcon("nextPage"), "Next page",
                     List.of(ChatColor.GRAY + "Page " + (page + 1))));
             holder.navigation.put(nextSlot, 1);
         }
@@ -396,6 +396,28 @@ public final class ShopMenus implements Listener {
 
     private static String colors(String text) {
         return ChatColor.translateAlternateColorCodes('&', text == null ? "" : text);
+    }
+
+    private ItemStack navigationIcon(Player player, ImportedCatalog.NavigationIcon configured,
+                                     String fallbackTitle, List<String> fallbackLore) {
+        if (configured == null) return item(Material.ARROW, ChatColor.YELLOW + fallbackTitle, fallbackLore);
+        ItemStack result;
+        try { result = plugin.items().create(configured.material(), configured.quantity()); }
+        catch (RuntimeException unsupported) {
+            plugin.getLogger().warning("Unknown navigation icon: " + configured.material());
+            return item(Material.BARRIER, ChatColor.RED + fallbackTitle, fallbackLore);
+        }
+        ItemMeta meta = result.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(configured.name() == null
+                    ? ChatColor.YELLOW + fallbackTitle
+                    : plugin.text().render(player, configured.name(), false));
+            meta.setLore(configured.lore().isEmpty() ? fallbackLore
+                    : configured.lore().stream()
+                            .map(line -> plugin.text().render(player, line, false)).toList());
+            result.setItemMeta(meta);
+        }
+        return result;
     }
 
     private static ItemStack item(Material material, String display, List<String> lore) {
