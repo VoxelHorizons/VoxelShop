@@ -60,7 +60,7 @@ public final class ShopItemMetadata {
                 String enchantment = String.valueOf(entry);
                 int colon = enchantment.lastIndexOf(':');
                 if (colon <= 0) throw new IOException("Expected ENCHANTMENT:LEVEL at " + where);
-                String key = enchantment.substring(0, colon).toUpperCase(Locale.ROOT);
+                String key = canonicalEnchantment(enchantment.substring(0, colon)).toUpperCase(Locale.ROOT);
                 if (!key.matches("[A-Z0-9_]+"))
                     throw new IOException("Unsupported enchantment ID " + key + " at " + where);
                 int level = number(enchantment.substring(colon + 1), 1, 255, where + ".enchantments");
@@ -117,6 +117,35 @@ public final class ShopItemMetadata {
         }
     }
 
+    /** Normalize historical Bukkit enchant names before assigning a stock market. */
+    public static String canonicalEnchantment(String id) {
+        String normalized = id.toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "damage_all" -> "sharpness";
+            case "damage_undead" -> "smite";
+            case "damage_arthropods" -> "bane_of_arthropods";
+            case "dig_speed" -> "efficiency";
+            case "durability" -> "unbreaking";
+            case "loot_bonus_blocks" -> "fortune";
+            case "loot_bonus_mobs" -> "looting";
+            case "arrow_damage" -> "power";
+            case "arrow_fire" -> "flame";
+            case "arrow_infinite" -> "infinity";
+            case "protection_environmental" -> "protection";
+            case "protection_fall" -> "feather_falling";
+            case "oxygen" -> "respiration";
+            case "water_worker" -> "aqua_affinity";
+            case "luck" -> "luck_of_the_sea";
+            default -> normalized;
+        };
+    }
+
+    private static String canonicalColors(String value) {
+        if (value == null) return null;
+        return java.util.regex.Pattern.compile("(?i)&([0-9a-fk-or])")
+                .matcher(value).replaceAll(match -> "§" + match.group(1).toLowerCase(Locale.ROOT));
+    }
+
     public boolean isPlain() {
         return name == null && lore.isEmpty() && enchantments.isEmpty()
                 && damage == null && customModelData == null && !unbreakable
@@ -125,8 +154,8 @@ public final class ShopItemMetadata {
     /** Stable identity separate from the base material market. */
     public String fingerprint() {
         StringBuilder canonical = new StringBuilder();
-        append(canonical, name);
-        for (String line : lore) append(canonical, line);
+        append(canonical, canonicalColors(name));
+        for (String line : lore) append(canonical, canonicalColors(line));
         canonical.append("enchants:");
         new TreeMap<>(enchantments).forEach((k,v) -> append(canonical,k + ":" + v));
         append(canonical, String.valueOf(damage));

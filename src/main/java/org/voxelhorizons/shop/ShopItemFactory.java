@@ -51,7 +51,7 @@ public final class ShopItemFactory {
             }
         }
         for (Map.Entry<String,Integer> enchantment : spec.enchantments().entrySet()) {
-            String id = enchantmentKey(enchantment.getKey());
+            String id = ShopItemMetadata.canonicalEnchantment(enchantment.getKey());
             Enchantment registered = Registry.ENCHANTMENT.get(NamespacedKey.minecraft(id));
             if (registered == null)
                 throw new IllegalArgumentException("Unknown enchantment: " + enchantment.getKey());
@@ -85,28 +85,6 @@ public final class ShopItemFactory {
         }
         item.setItemMeta(meta);
         return item;
-    }
-
-    private static String enchantmentKey(String legacy) {
-        String normalized = legacy.toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "damage_all" -> "sharpness";
-            case "damage_undead" -> "smite";
-            case "damage_arthropods" -> "bane_of_arthropods";
-            case "dig_speed" -> "efficiency";
-            case "durability" -> "unbreaking";
-            case "loot_bonus_blocks" -> "fortune";
-            case "loot_bonus_mobs" -> "looting";
-            case "arrow_damage" -> "power";
-            case "arrow_fire" -> "flame";
-            case "arrow_infinite" -> "infinity";
-            case "protection_environmental" -> "protection";
-            case "protection_fall" -> "feather_falling";
-            case "oxygen" -> "respiration";
-            case "water_worker" -> "aqua_affinity";
-            case "luck" -> "luck_of_the_sea";
-            default -> normalized;
-        };
     }
 
     public ItemStack create(String identity, int quantity) {
