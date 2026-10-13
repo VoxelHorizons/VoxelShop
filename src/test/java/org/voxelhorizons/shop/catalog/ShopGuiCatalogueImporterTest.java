@@ -189,6 +189,33 @@ class ShopGuiCatalogueImporterTest {
         assertTrue(rejected.getMessage().contains("Unsupported item metadata key"));
     }
 
+    @Test void preservesCustomShopSizeButtonsAndPerShopMouseActions() throws Exception {
+        write("compact.yml", "compact:\n"
+                + "  name: 'Compact'\n"
+                + "  size: 27\n"
+                + "  buttons:\n"
+                + "    goBack: {slot: 18}\n"
+                + "    previousPage: {slot: -1}\n"
+                + "    nextPage: {slot: 26}\n"
+                + "  clickActions: {LEFT: SELL, RIGHT: BUY_GUI, SHIFT_RIGHT: NONE}\n"
+                + "  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 10}\n");
+        var shop = importShops().shops().get("compact");
+        assertEquals(27, shop.size());
+        assertEquals(18, shop.buttonSlot("goBack", 0));
+        assertEquals(-1, shop.buttonSlot("previousPage", 18));
+        assertEquals("SELL", shop.clickActions().get("LEFT"));
+        assertEquals("BUY_GUI", shop.clickActions().get("RIGHT"));
+    }
+
+    @Test void rejectsOfferOrButtonOutsideCustomInventorySize() throws Exception {
+        write("bad.yml", "bad:\n  size: 18\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 20}\n");
+        assertTrue(assertThrows(IOException.class, this::importShops).getMessage().contains("Invalid GUI page/slot"));
+        write("bad.yml", "bad:\n  size: 18\n  buttons: {goBack: {slot: 30}}\n  items: {}\n");
+        assertTrue(assertThrows(IOException.class, this::importShops).getMessage().contains("Navigation slot"));
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
