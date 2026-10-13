@@ -57,12 +57,15 @@ public final class TradeCoordinator {
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR)
             return "Trading is unavailable in this game mode.";
 
-        Material material = Material.matchMaterial(offer.materialOrSpecial());
-        if (material == null || !material.isItem() || material == Material.AIR)
-            return "Only supported vanilla inventory items can be traded.";
-        if (quantity < 1 || quantity > material.getMaxStackSize())
+        ItemStack exact;
+        try {
+            exact = plugin.items().create(offer.materialOrSpecial(), 1);
+        } catch (RuntimeException error) {
+            return "This item cannot be traded: " + error.getMessage();
+        }
+        Material material = exact.getType();
+        if (quantity < 1 || quantity > exact.getMaxStackSize())
             return "Invalid amount for this item.";
-        ItemStack exact = new ItemStack(material, 1);
         MarketQuote quote;
         try {
             quote = plugin.market().quote(offer.marketId(), side, quantity, offer.sellRatio());
@@ -98,7 +101,9 @@ public final class TradeCoordinator {
                 snapshots.save(plugin.market(), plugin.catalog().markets());
                 entry.stage("STOCK_PERSISTED");
                 entry.stage("DELIVERY_IN_PROGRESS");
-                Map<Integer, ItemStack> leftovers = player.getInventory().addItem(new ItemStack(material, quantity));
+                ItemStack delivery = exact.clone();
+                delivery.setAmount(quantity);
+                Map<Integer, ItemStack> leftovers = player.getInventory().addItem(delivery);
                 if (!leftovers.isEmpty())
                     throw new IllegalStateException("Unexpected inventory overflow; staff reconciliation required");
                 player.saveData();

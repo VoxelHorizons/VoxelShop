@@ -8,7 +8,7 @@ JAR.** Current development: `0.2.0-SNAPSHOT`.
 
 - Browser for existing user-authored ShopGUIPlus-style `shops/*.yml`, with
   categories, page navigation, balance previews and current marginal pricing.
-- Buy and sell with left/right-click, shift-click amount selection, safe
+- Buy and sell ordinary vanilla and exact VoxelCore item templates with left/right-click, shift-click amount selection, safe
   server-owned GUI inventory mappings and no client-authoritative prices.
 - `/shop` and `/vshop <category> [page]`; `/sell hand [quantity]`,
   `/sell handall`, `/sell all` for **unmodified vanilla items**.

@@ -109,6 +109,17 @@ class ShopGuiCatalogueImporterTest {
                 .getMessage().contains("Invalid YAML"));
     }
 
+    @Test void handlesOptionalVoxelCoreCustomItemIdentityWithoutMaterialConfusion() throws Exception {
+        write("custom.yml", "custom:\\n  items:\\n"
+                + "    one: {type: item, item: {voxelcore: 'voxel:watering_can', quantity: 1}, buyPrice: 50, sellPrice: 5, slot: 10}\\n"
+                + "    two: {type: item, item: {material: PAPER}, buyPrice: 10, sellPrice: 1, slot: 11}\\n");
+        ImportedCatalog result = importShops();
+        assertTrue(result.markets().containsKey("voxelitem:voxel:watering_can"));
+        assertTrue(result.markets().containsKey("minecraft:paper"));
+        assertEquals("voxelcore:voxel:watering_can",
+                result.shops().get("custom").offers().get(0).materialOrSpecial());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");

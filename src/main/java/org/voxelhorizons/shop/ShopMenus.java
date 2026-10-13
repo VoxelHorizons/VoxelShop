@@ -88,9 +88,12 @@ public final class ShopMenus implements Listener {
                 }
                 continue;
             }
-            Material material = match(offer.materialOrSpecial());
-            ItemStack icon = new ItemStack(material == Material.AIR ? Material.BARRIER : material,
-                    Math.max(1, Math.min(offer.quantity(), Math.max(1, material.getMaxStackSize()))));
+            ItemStack icon;
+            try {
+                icon = plugin.items().create(offer.materialOrSpecial(), offer.quantity());
+            } catch (RuntimeException unavailable) {
+                icon = new ItemStack(Material.BARRIER);
+            }
             ItemMeta metadata = icon.getItemMeta();
             if (metadata == null) continue;
             metadata.setDisplayName(ChatColor.WHITE + pretty(offer.materialOrSpecial()));
@@ -148,10 +151,16 @@ public final class ShopMenus implements Listener {
         holder.inventory = gui;
         int[] quantities = {1, 4, 8, 16, 32, 64};
         int[] slots = {10, 11, 12, 13, 14, 15};
-        Material material = match(offer.materialOrSpecial());
+        ItemStack template;
+        try {
+            template = plugin.items().create(offer.materialOrSpecial(), 1);
+        } catch (RuntimeException unavailable) {
+            player.sendMessage(ChatColor.RED + unavailable.getMessage());
+            return;
+        }
         for (int i = 0; i < quantities.length; i++) {
             int q = quantities[i];
-            if (q > material.getMaxStackSize()) continue;
+            if (q > template.getMaxStackSize()) continue;
             List<String> lore = new ArrayList<>();
             try {
                 MarketQuote quote = plugin.market().quote(offer.marketId(), side, q, offer.sellRatio());
@@ -161,7 +170,15 @@ public final class ShopMenus implements Listener {
             } catch (RuntimeException unavailable) {
                 lore.add(ChatColor.RED + unavailable.getMessage());
             }
-            gui.setItem(slots[i], item(material, ChatColor.YELLOW + Integer.toString(q) + " items", lore));
+            ItemStack button = template.clone();
+            button.setAmount(q);
+            ItemMeta meta = button.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName(ChatColor.YELLOW + Integer.toString(q) + " items");
+                meta.setLore(lore);
+                button.setItemMeta(meta);
+            }
+            gui.setItem(slots[i], button);
         }
         gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Back",
                 java.util.Collections.singletonList(ChatColor.GRAY + "Return without trading")));

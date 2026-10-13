@@ -24,6 +24,7 @@ public final class VoxelShop extends JavaPlugin {
     private MarketSnapshotStore snapshots;
     private TradeJournal journal;
     private TradeCoordinator trades;
+    private final ShopItemFactory itemFactory = new ShopItemFactory();
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -98,4 +99,5 @@ public final class VoxelShop extends JavaPlugin {
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }
     public TradeCoordinator trades() { return trades; }
+    public ShopItemFactory items() { return itemFactory; }
 }

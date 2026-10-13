@@ -21,8 +21,9 @@ bundle the licensed JAR, textures, or other proprietary assets.
 Prices are always computed by the server from current stock and shop offer,
 never accepted from inventory item lore or client clicks. All operations are
 serialized on the Paper server thread. GUI clicks, drags and shift transfers
-are cancelled. Sell operations accept exact, ordinary vanilla item stacks
-without custom item metadata. Creative and spectator trades are rejected.
+are cancelled. Sell operations accept exact ordinary vanilla item stacks and exact VoxelCore
+item templates, preserving identity-bearing item metadata. Modified/tinted
+variants that differ from the generated base template are intentionally rejected. Creative and spectator trades are rejected.
 
 Every trade creates a durable file in `journal/pending` before **any**
 inventory or wallet change. A transaction advances through explicit phases
