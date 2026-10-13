@@ -4,10 +4,16 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
+import org.voxelhorizons.shop.catalog.MainMenuLayout;
+import org.voxelhorizons.shop.catalog.MainMenuImporter;
+import org.voxelhorizons.shop.catalog.WorthStore;
 import org.voxelhorizons.shop.catalog.ShopGuiCatalogueImporter;
 import org.voxelhorizons.shop.market.MarketDefinition;
 import org.voxelhorizons.shop.market.MarketEngine;
 import org.voxelhorizons.shop.market.MarketPolicy;
+import org.voxelhorizons.shop.market.PriceModifiers;
+import org.voxelhorizons.shop.market.PermissionPriceTiers;
+import org.voxelhorizons.shop.market.MarketQuote;
 
 import java.nio.file.Files;
 import org.voxelhorizons.shop.state.MarketSnapshotStore;
@@ -18,13 +24,19 @@ import java.util.Locale;
 /** Paper entrypoint for the independent VoxelShop implementation. */
 public final class VoxelShop extends JavaPlugin {
     private ImportedCatalog catalog;
+    private MainMenuLayout mainMenu;
+    private WorthStore worth = WorthStore.empty();
+    private volatile boolean catalogueValid;
     private MarketEngine market;
     private VaultUnlockedBridge economy;
     private ShopMenus menus;
     private MarketSnapshotStore snapshots;
     private TradeJournal journal;
     private TradeCoordinator trades;
+    private PriceModifiers modifiers;
+    private PermissionPriceTiers permissionTiers = new PermissionPriceTiers(java.util.List.of());
     private final ShopItemFactory itemFactory = new ShopItemFactory();
+    private final ShopText shopText = new ShopText();
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -33,6 +45,7 @@ public final class VoxelShop extends JavaPlugin {
         try {
             snapshots = new MarketSnapshotStore(getDataFolder().toPath().resolve("market-state.properties"));
             journal = new TradeJournal(getDataFolder().toPath().resolve("journal"));
+            modifiers = new PriceModifiers(getDataFolder().toPath().resolve("modifiers.properties"));
             loadCatalog();
             trades = new TradeCoordinator(this, journal, snapshots);
         } catch (Exception exception) {
@@ -56,7 +69,7 @@ public final class VoxelShop extends JavaPlugin {
         if (sellCommand != null) sellCommand.setExecutor(new SellCommand(this));
 
         if (!economy.available())
-            getLogger().warning("No VaultUnlocked vault2 Economy provider found: shop browsing works, trading is disabled.");
+            getLogger().warning("No Vault or Vault2 economy provider found: browsing works but trading is unavailable.");
         try {
             long unresolved = journal.unresolved().size();
             if (unresolved > 0) getLogger().severe("TRADING LOCKED: " + unresolved
@@ -70,6 +83,9 @@ public final class VoxelShop extends JavaPlugin {
     }
 
     public void loadCatalog() throws Exception {
+        // Fail closed during reload: invalid config must never activate a stale
+        // inventory/economy workflow against a partially loaded catalogue.
+        catalogueValid = false;
         // Import user-authored ShopGUIPlus YAML. Does not copy the original plugin code.
         Path source = getDataFolder().toPath().resolve("shops");
         if (!Files.isDirectory(source))
@@ -83,21 +99,62 @@ public final class VoxelShop extends JavaPlugin {
         int target = getConfig().getInt("market.target-stock", 1000);
         int capacity = getConfig().getInt("market.stock-capacity", 100000);
         ImportedCatalog imported = ShopGuiCatalogueImporter.read(source, currency, target, capacity);
-        MarketPolicy policy = MarketPolicy.defaults();
+        PermissionPriceTiers parsedTiers = PermissionPriceTiers.read(
+                getConfig().getConfigurationSection("modifiers.permission-tiers"));
+        // Validate dynamic pricing explicitly; never silently fall back from
+        // an unsafe/malformed owner-supplied configuration.
+        MarketPolicy policy = new MarketPolicy(
+                priceDecimal("market.sensitivity", "0.35"),
+                priceDecimal("market.min-multiplier", "0.50"),
+                priceDecimal("market.max-multiplier", "2.00"),
+                priceDecimal("market.default-sell-ratio", "0.15"),
+                getConfig().getInt("market.max-order", 64),
+                getConfig().getInt("market.precision", 2));
         MarketEngine created = new MarketEngine(policy);
         for (MarketDefinition definition : imported.markets().values()) created.register(definition);
         snapshots.restore(created, imported.markets());
         // If an earlier state exists, it has been validated before publishing.
         // Initial snapshot is also durable so runtime restarts cannot reroll stock.
         snapshots.save(created, imported.markets());
+        Path menuSource = getDataFolder().toPath().resolve("menus.yml");
+        if (!Files.isRegularFile(menuSource))
+            menuSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "config.yml");
+        MainMenuLayout parsedMenu = Files.isRegularFile(menuSource)
+                ? MainMenuImporter.read(menuSource) : null;
+        Path worthSource = getDataFolder().toPath().resolve("worth.yml");
+        if (!Files.isRegularFile(worthSource))
+            worthSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "worth.yml");
+        WorthStore importedWorth = WorthStore.read(worthSource);
+        this.worth = importedWorth;
+        this.permissionTiers = parsedTiers;
+        this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
+        catalogueValid = true;
     }
 
+    private java.math.BigDecimal priceDecimal(String key, String fallback) {
+        return new java.math.BigDecimal(String.valueOf(getConfig().get(key, fallback)));
+    }
+
+    public boolean catalogueValid() { return catalogueValid; }
     public ImportedCatalog catalog() { return catalog; }
+    public MainMenuLayout mainMenu() { return mainMenu; }
+    public WorthStore worth() { return worth; }
     public MarketEngine market() { return market; }
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }
     public TradeCoordinator trades() { return trades; }
+    public PriceModifiers modifiers() { return modifiers; }
+    public java.math.BigDecimal price(org.bukkit.entity.Player player, MarketQuote quote) {
+        return modifiers.total(player.getUniqueId(), quote,
+                permissionTiers.factor(player::hasPermission, quote.side()));
+    }
+
+    public java.math.BigDecimal priceFactor(org.bukkit.entity.Player player, String marketId, MarketQuote.Side side) {
+        return modifiers.multiplier(player.getUniqueId(), marketId, side)
+                .multiply(permissionTiers.factor(player::hasPermission, side));
+    }
     public ShopItemFactory items() { return itemFactory; }
+    public ShopText text() { return shopText; }
 }

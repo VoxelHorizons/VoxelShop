@@ -55,9 +55,25 @@ public final class ImportedCatalog {
         private final BigDecimal baselineSell;
         private final String marketId;
         private final BigDecimal sellRatio;
+        private final boolean buyEnabled, sellEnabled;
+        private final String permission, displayName;
+        private final List<String> displayLore;
 
         Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
               BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio) {
+            this(id, type, materialOrSpecial, quantity, page, slot, baselineBuy, baselineSell,
+                    marketId, sellRatio, true, true, null, null, Collections.emptyList());
+        }
+
+        Offer(String id, String type, String materialOrSpecial, int quantity, int page, int slot,
+              BigDecimal baselineBuy, BigDecimal baselineSell, String marketId, BigDecimal sellRatio,
+              boolean buyEnabled, boolean sellEnabled, String permission, String displayName,
+              List<String> displayLore) {
+            this.buyEnabled = buyEnabled;
+            this.sellEnabled = sellEnabled;
+            this.permission = permission;
+            this.displayName = displayName;
+            this.displayLore = Collections.unmodifiableList(new ArrayList<>(displayLore));
             this.id = id;
             this.type = type;
             this.materialOrSpecial = materialOrSpecial;
@@ -79,5 +95,10 @@ public final class ImportedCatalog {
         public BigDecimal baselineSell() { return baselineSell; }
         public String marketId() { return marketId; }
         public BigDecimal sellRatio() { return sellRatio; }
+        public boolean canBuy() { return buyEnabled; }
+        public boolean canSell() { return sellEnabled; }
+        public String permission() { return permission; }
+        public String displayName() { return displayName; }
+        public List<String> displayLore() { return displayLore; }
     }
 }

@@ -120,11 +120,45 @@ class ShopGuiCatalogueImporterTest {
                 result.shops().get("custom").offers().get(0).materialOrSpecial());
     }
 
+    @Test void supportsBuyOnlySellOnlyAndPermissionGatedOffers() throws Exception {
+        write("directions.yml", "directions:\n"
+                + "  items:\n"
+                + "    buy: {type: item, item: {material: DIAMOND, name: '&bGem', lore: ['&7Precious']}, buyPrice: 250, sellPrice: -1, permission: premium.shop.gems, slot: 10}\n"
+                + "    sell: {type: item, item: {material: DIRT}, buyPrice: -1, sellPrice: 1.50, slot: 11}\n");
+        ImportedCatalog results = importShops();
+        ImportedCatalog.Offer buy = results.shops().get("directions").offers().get(0);
+        ImportedCatalog.Offer sell = results.shops().get("directions").offers().get(1);
+        assertTrue(buy.canBuy());
+        assertFalse(buy.canSell());
+        assertEquals("premium.shop.gems", buy.permission());
+        assertEquals("&bGem", buy.displayName());
+        assertEquals(java.util.List.of("&7Precious"), buy.displayLore());
+        assertFalse(sell.canBuy());
+        assertTrue(sell.canSell());
+        assertNotNull(results.markets().get(sell.marketId()));
+        assertEquals(0, new BigDecimal("0.15").compareTo(sell.sellRatio()));
+    }
+
+    @Test void sellOnlyOfferSharesMarketWithLaterBuyEnabledCategory() throws Exception {
+        write("a_selling.yml", "a_selling:\n  items:\n"
+                + "    item: {type: item, item: {material: STONE}, buyPrice: -1, sellPrice: 2, slot: 10}\n");
+        write("b_buying.yml", "b_buying:\n  items:\n"
+                + "    item: {type: item, item: {material: STONE}, buyPrice: 20, sellPrice: 4, slot: 11}\n");
+        ImportedCatalog result = importShops();
+        assertEquals(1, result.markets().size());
+        assertEquals(0, new BigDecimal("20").compareTo(
+                result.markets().get("minecraft:stone").basePrice()));
+        ImportedCatalog.Offer seller = result.shops().get("a_selling").offers().get(0);
+        assertEquals(0, new BigDecimal("0.10").compareTo(seller.sellRatio()));
+        assertTrue(seller.canSell());
+        assertFalse(seller.canBuy());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
         assertTrue(assertThrows(IOException.class, this::importShops)
-                .getMessage().contains("disabled or free"));
+                .getMessage().contains("zero price"));
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: mystery, slot: 10}\n");
         assertTrue(assertThrows(IOException.class, this::importShops)

@@ -1,12 +1,42 @@
 # Default is SAFE: enable only after testing on a backed-up Paper 26.2 server.
 economy:
   default-currency: coins
-  # Used ONLY when no modern vault2 provider is registered, usually EssentialsX.
+  # Route Coins to legacy Vault (EssentialsX), even if Vault2 manages tokens.
   legacy-currency: coins
 market:
   target-stock: 1000
   stock-capacity: 100000
+  # Marginal pricing moves with market inventory. min/max are safety limits.
+  # Changing values affects ALL markets; make a backup before reloading.
+  sensitivity: 0.35
+  min-multiplier: 0.50
+  max-multiplier: 2.00
+  default-sell-ratio: 0.15
+  max-order: 64
+  precision: 2
 trading:
   enabled: false
+  max-sell-all-orders: 8
 gui:
   title: '&8ᴠᴏxᴇʟ ꜱʜᴏᴘ'
+
+  # ShopGUIPlus-style click-action mapping (safe and server-authoritative).
+  # Valid actions: BUY, SELL, SELL_ALL, BUY_GUI, SELL_GUI, NONE.
+  click-actions:
+    LEFT: BUY
+    RIGHT: SELL
+    SHIFT_LEFT: BUY_GUI
+    SHIFT_RIGHT: SELL_ALL
+    MIDDLE: SELL_ALL
+
+# Optional highest-priority LuckPerms-compatible permission tier. Tiers do NOT
+# stack; they combine once with any explicit per-player admin modifier.
+# modifier values between 0.25 and 4.0 are accepted; unsafe buy/sell round
+# trips are rejected when quoted.
+modifiers:
+  permission-tiers:
+    # premium:
+    #   permission: voxelshop.tier.premium
+    #   priority: 20
+    #   buy: 0.90
+    #   sell: 1.05

@@ -9,7 +9,7 @@ independent implementation with its own API and design.
 
 | Feature / functional surface | Current VoxelShop state | Validation needed |
 | --- | --- | --- |
-| Shop categories, menu browsing, pagination, /shop | Implemented (Paper 26.2) | Test Unicode titles/placeholder rendering and individual layouts |
+| Shop categories, menu browsing, pagination, /shop | Implemented; legacy main-menu icon/layout import and VoxelCore glyph resolution | Test private layouts, Unicode titles and placeholder rendering on Paper |
 | Shop offer buy/sell, shift-click amount GUI | Implemented for supported stack identities | Live purchase/sale, stale quote, inventory full, wallet denial |
 | /sell hand, handall, all | Partial: exact ordinary vanilla items, capped batches | Multi-stack behavior and command parity |
 | Dynamic marginal stock-based pricing | Implemented bounded model | Economy and crafting arbitrage simulation |
@@ -17,13 +17,13 @@ independent implementation with its own API and design.
 | Legacy Vault and named Vault2 currencies | Implemented with explicit Coins fallback | EssentialsX Coins and VoxelCore tokens side by side |
 | Per-offer original sell margins | Implemented | Same material across multiple category offers |
 | Item providers / custom items | Partial: exact VoxelCore templates | Modifiable tints, non-VoxelCore items, provider reloads |
-| Advanced click actions and per-shop GUI layout | Partial | Configurable right/left/shift mappings, special buttons |
+| Advanced click actions and per-shop GUI layout | Partial: configurable buy/sell/sell-all/amount GUI, imported category icons | Complex custom actions, buttons and bulk UI still missing |
 | Shop links, special GUI elements | Partial (balance display) | Full special-element import |
-| Bulk quantity selection | Partial (preset quantities) | Bulk amount GUI and custom amount controls |
+| Bulk quantity selection | Implemented +/-1/10, set 1/max and on-item live price | Advanced bulk menus, quick-repeat settings and custom controls |
 | Shop permissions | Partial | Per-offer permission, dynamic ranks, bypass rules |
-| Price modifiers (permission and command) | Not implemented | Multipliers, precedence, add/reset/query commands |
-| /shop check, worth and price modifiers | Not implemented | Command argument/permission parity |
-| Pre/post transaction events | Not implemented | Cancellation and safe synchronous dispatch |
+| Price modifiers (permission and command) | Partial: persisted per-player exact/wildcard plus priority-ranked LuckPerms permission tiers | Expiry, player-specific legacy migration and full vendor command syntax remain |
+| /shop check, worth and price modifiers | Partial: /vshop check, worth and modifier management | Alias/legacy argument parity and advanced worth valuations |
+| Pre/post transaction events | Implemented independent VoxelShop cancellable prepare/completed events | Third-party integration testing and optional legacy adapters |
 | ShopGUIPlus external plugin API | Not implemented | Design independent API; bridge only as needed |
 | Persistent player-specific settings and database migrations | Not implemented | Backups, migration scripts and rollback |
 | Additional economy providers and XP systems | Partial (Vault and Vault2 only) | Provider adapters where required |
@@ -49,3 +49,10 @@ independent implementation with its own API and design.
 
 This document describes *functional differences*, not a promise of binary/API
 compatibility with the vendor's plugin.
+
+## Live staging acceptance
+
+See [STAGING-ACCEPTANCE.md](STAGING-ACCEPTANCE.md) for validation of
+actual Vault/Vault2 providers, VoxelCore items, dynamic prices, full click
+surface, controlled process crashes, disk journal integrity, and concurrency.
+Java unit tests or JAR compilation do not demonstrate production recovery.

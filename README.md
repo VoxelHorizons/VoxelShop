@@ -2,7 +2,7 @@
 
 Independent Paper 26.2 shop, YAML importer and dynamic stock-pricing project for
 VoxelHorizons. **Not a fork or redistributable copy of the licensed ShopGUIPlus
-JAR.** Current development: `0.2.0-SNAPSHOT`.
+JAR.** Current development: `0.3.0-SNAPSHOT`.
 
 ## What works on this branch
 
@@ -18,6 +18,62 @@ JAR.** Current development: `0.2.0-SNAPSHOT`.
   Vault routing for EssentialsX Coins even when a separate vault2 provider is registered.
 - Write-ahead transaction records. Trades blocked while any ambiguous
   transaction awaits manual reconciliation; never replay questionable debits.
+
+## New in 0.3.0 — parity and validation phase
+
+- **Author-written main-menu YAML:** If `plugins/VoxelShop/menus.yml` exists,
+  use its ShopGUI-style `shopMenuItems`, `shopMenuSize`, `shopMenuFillItem`,
+  title and balance element. Otherwise, read the existing user-authored
+  `plugins/ShopGUIPlus/config.yml`; if neither exists, use a generated
+  category grid. No licensed JAR assets are copied into VoxelShop.
+- **Author-written item YAML:** individual offer permissions, custom
+  names/lore, and independent buy-only/sell-only options. Missing or negative
+  prices disable that direction; zero prices are rejected.
+- **Clicks:** `gui.click-actions` supports `BUY`, `SELL`, `SELL_ALL`,
+  `BUY_GUI`, `SELL_GUI`, and `NONE`. The quantity GUI supports +/-1,
+  +/-10, set 1/max, a live price on the selected item, and separate confirmation.
+  Bulk selling is bounded by `trading.max-sell-all-orders` and market capacity.
+- **Currency modifiers:** durable admin-controlled player/market multipliers,
+  wildcard `*` markets, and highest-priority permission-based ranks
+  (`modifiers.permission-tiers`). Multipliers affect GUI and wallet identically
+  and cross-shop ratio checks prevent buy/sell arbitrage, including at zero stock.
+- **Veto and audit hooks:** synchronous `VoxelShopTradePreEvent` (cancellable,
+  before any mutation) and `VoxelShopTradeCompleteEvent` (after commit).
+  These are VoxelShop APIs, **not binary replacements** for ShopGUIPlus events.
+- **VoxelCore resource-pack UI:** optionally resolve `:offset_-8:`, custom
+  named fonts and PlaceholderAPI text in shop titles, item names and lore.
+  Shop title placeholders `%page%` and `%pages%` are supported.
+- **Static worth migration:** read legacy `worth.yml` (read-only) and expose
+  `/vshop worth [hand|material] [quantity]`. Static worth is deliberately
+  separate from real-time sale quotes.
+- **Reload safety:** a failed catalogue reload locks all new trading until a
+  valid reload succeeds. GUI inventory click exploit protections have been
+  tightened; cancelled events, unrelated clicks and rapid duplicate trades
+  cannot mutate wallets.
+
+### Commands
+
+```text
+/shop [category] [page]
+/vshop check [category]                         (admin)
+/vshop worth [hand|material] [quantity]
+/vshop modifier set <online-player|UUID> <market|*> <buy|sell> <0.25..4.00>
+/vshop modifier reset <online-player|UUID> <market|*> <buy|sell>
+/vshop modifier check <online-player|UUID> <market|*>
+/vshop pending                                  (admin)
+/vshop reconcile <transaction-UUID> --confirmed (manual recovery only)
+/vshop reload                                   (admin)
+/sell hand [quantity] | handall | all
+```
+
+For the exact server-side test sequence see
+[Staging acceptance](docs/STAGING-ACCEPTANCE.md).
+
+**Still blocked from production certification:** provider-specific crash
+reconciliation, dynamic item variants and unsupported item types, advanced
+quantity UI, complete external ShopGUIPlus API/event compatibility,
+crafting-arbitrage simulations, and in-server testing with the real player
+economy and authored configs. `trading.enabled` stays **false** by default.
 
 ## Install for staging
 

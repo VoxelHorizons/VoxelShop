@@ -124,15 +124,16 @@ public final class SellCommand implements CommandExecutor {
             if (!player.hasPermission("voxelshop.shop." + shop.id())
                     && !player.hasPermission("voxelshop.shop.*")) continue;
             for (ImportedCatalog.Offer offer : shop.offers()) {
-                if (!"item".equals(offer.type())
+                if (!"item".equals(offer.type()) || !offer.canSell()
+                        || offer.permission() != null && !player.hasPermission(offer.permission())
                         || !material.name().equalsIgnoreCase(offer.materialOrSpecial())) continue;
                 if (!currency.equalsIgnoreCase(plugin.catalog().markets().get(offer.marketId()).currency()))
                     continue;
                 try {
                     MarketQuote quote = plugin.market().quote(offer.marketId(),
                             MarketQuote.Side.SELL, quantity, offer.sellRatio());
-                    if (quote.total().compareTo(best) > 0) {
-                        best = quote.total();
+                    if (plugin.trades().displayPrice(player, quote).compareTo(best) > 0) {
+                        best = plugin.trades().displayPrice(player, quote);
                         selected = new Selection(shop.id(), offer);
                     }
                 } catch (RuntimeException ignored) { /* This offer cannot accept this quantity. */ }

@@ -8,12 +8,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
+import org.voxelhorizons.shop.catalog.MainMenuLayout;
 import org.voxelhorizons.shop.market.MarketQuote;
 
 import java.math.BigDecimal;
@@ -30,21 +32,64 @@ import java.util.Map;
  */
 public final class ShopMenus implements Listener {
     private final VoxelShop plugin;
+    private final Map<java.util.UUID, Long> lastTradeClick = new HashMap<>();
 
     public ShopMenus(VoxelShop plugin) { this.plugin = plugin; }
 
     public void openCategories(Player player) {
+        MainMenuLayout layout = plugin.mainMenu();
         Holder holder = new Holder(null, 1);
-        Inventory inventory = Bukkit.createInventory(holder, 54, colors(
-                plugin.getConfig().getString("gui.title", "&8VoxelShop")));
+        String title = layout == null
+                ? plugin.getConfig().getString("gui.title", "&8VoxelShop") : layout.title();
+        Inventory inventory = Bukkit.createInventory(holder, layout == null ? 54 : layout.size(),
+                plugin.text().render(player, title, true));
         holder.inventory = inventory;
-        int slot = 0;
-        for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
-            if (slot >= 54) break;
-            ItemStack icon = item(Material.CHEST, ChatColor.GOLD + shop.title(),
-                    Arrays.asList(ChatColor.GRAY + "Click to browse", ChatColor.DARK_GRAY + shop.id()));
-            inventory.setItem(slot, icon);
-            holder.categoryClicks.put(slot++, shop.id());
+        if (layout != null) {
+            Material filler = match(layout.fillerMaterial());
+            if (filler != Material.AIR && filler != Material.BARRIER)
+                for (int slot = 0; slot < inventory.getSize(); slot++)
+                    inventory.setItem(slot, item(filler,
+                            plugin.text().render(player, layout.fillerName(), false), List.of()));
+            for (MainMenuLayout.Entry entry : layout.entries()) {
+                if (entry.permission() != null && !player.hasPermission(entry.permission())) continue;
+                if (entry.shop() != null && !plugin.catalog().shops().containsKey(entry.shop())) continue;
+                if (entry.shop() != null && !player.hasPermission("voxelshop.shop." + entry.shop())
+                        && !player.hasPermission("voxelshop.shop.*")) continue;
+                ItemStack icon;
+                try { icon = plugin.items().create(entry.material(), entry.quantity()); }
+                catch (RuntimeException unavailable) { icon = new ItemStack(Material.BARRIER); }
+                ItemMeta meta = icon.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName(plugin.text().render(player, entry.name(), false));
+                    List<String> lore = new ArrayList<>();
+                    String balance = "";
+                    if ("balance".equalsIgnoreCase(entry.special())) {
+                        try {
+                            String currency = plugin.getConfig().getString("economy.default-currency", "coins");
+                            balance = plugin.economy().balance(player, currency).toPlainString();
+                        } catch (RuntimeException ignored) { balance = "Unavailable"; }
+                    }
+                    for (String line : entry.lore())
+                        lore.add(plugin.text().render(player, line.replace("%balance%", balance), false));
+                    meta.setLore(lore);
+                    icon.setItemMeta(meta);
+                }
+                inventory.setItem(entry.slot(), icon);
+                if (entry.shop() != null) holder.categoryClicks.put(entry.slot(), entry.shop());
+            }
+        } else {
+            int slot = 0;
+            for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
+                if (!player.hasPermission("voxelshop.shop." + shop.id())
+                        && !player.hasPermission("voxelshop.shop.*")) continue;
+                if (slot >= inventory.getSize()) break;
+                ItemStack icon = item(Material.CHEST,
+                        ChatColor.GOLD + plugin.text().render(player, shop.title(), false),
+                        Arrays.asList(ChatColor.GRAY + "Click to browse",
+                                ChatColor.DARK_GRAY + shop.id()));
+                inventory.setItem(slot, icon);
+                holder.categoryClicks.put(slot++, shop.id());
+            }
         }
         player.openInventory(inventory);
     }
@@ -61,18 +106,26 @@ public final class ShopMenus implements Listener {
             return;
         }
 
+        int pages = shop.offers().stream().mapToInt(ImportedCatalog.Offer::page).max().orElse(1);
+        if (page > pages) {
+            player.sendMessage(ChatColor.RED + "There is no page " + page + " in this shop.");
+            return;
+        }
         Holder holder = new Holder(shopId, page);
-        Inventory inventory = Bukkit.createInventory(holder, 54, colors(shop.title()));
+        String title = shop.title().replace("%page%", Integer.toString(page))
+                .replace("%pages%", Integer.toString(pages));
+        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player, title, true));
         holder.inventory = inventory;
         Material fill = match(shop.fillerMaterial());
         if (fill != Material.AIR) {
             for (int i = 0; i < 54; i++)
-                inventory.setItem(i, item(fill, colors(shop.fillerName()), java.util.Collections.emptyList()));
+                inventory.setItem(i, item(fill, plugin.text().render(player, shop.fillerName(), false), java.util.Collections.emptyList()));
         }
         boolean nextPage = false;
         for (ImportedCatalog.Offer offer : shop.offers()) {
             if (offer.page() > page) nextPage = true;
             if (offer.page() != page) continue;
+            if (offer.permission() != null && !player.hasPermission(offer.permission())) continue;
             int slot = offer.slot();
             if ("special".equals(offer.type())) {
                 if ("balance".equalsIgnoreCase(offer.materialOrSpecial())) {
@@ -96,23 +149,40 @@ public final class ShopMenus implements Listener {
             }
             ItemMeta metadata = icon.getItemMeta();
             if (metadata == null) continue;
-            metadata.setDisplayName(ChatColor.WHITE + pretty(offer.materialOrSpecial()));
+            metadata.setDisplayName(offer.displayName() == null
+                    ? ChatColor.WHITE + pretty(offer.materialOrSpecial()) : plugin.text().render(player, offer.displayName(), false));
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD + offer.baselineBuy());
-            lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD + offer.baselineSell());
+            for (String line : offer.displayLore()) lore.add(plugin.text().render(player, line, false));
+            lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD
+                    + (offer.canBuy() ? offer.baselineBuy() : "Disabled"));
+            lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD
+                    + (offer.canSell() ? offer.baselineSell() : "Disabled"));
             try {
-                MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
-                MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity(), offer.sellRatio());
-                lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + buy.total().toPlainString()
-                        + " " + buy.currency());
-                lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + sell.total().toPlainString()
-                        + " " + sell.currency());
+                if (offer.canBuy()) {
+                    MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
+                    lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + plugin.trades().displayPrice(player, buy).toPlainString()
+                            + " " + buy.currency());
+                }
+                if (offer.canSell()) {
+                    MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity(), offer.sellRatio());
+                    lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + plugin.trades().displayPrice(player, sell).toPlainString()
+                            + " " + sell.currency());
+                }
             } catch (RuntimeException exception) {
                 lore.add(ChatColor.RED + "Market unavailable: " + exception.getMessage());
             }
-            lore.add(ChatColor.GRAY + "Left click: buy " + offer.quantity());
-            lore.add(ChatColor.GRAY + "Right click: sell " + offer.quantity());
-            lore.add(ChatColor.GRAY + "Shift-click: select amount");
+            for (ClickType clickAction : new ClickType[]{
+                    ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT, ClickType.SHIFT_RIGHT,
+                    ClickType.MIDDLE}) {
+                ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), clickAction);
+                if (action == ShopClickActions.Action.NONE) continue;
+                if ((action == ShopClickActions.Action.BUY || action == ShopClickActions.Action.BUY_GUI)
+                        && !offer.canBuy()) continue;
+                if ((action == ShopClickActions.Action.SELL || action == ShopClickActions.Action.SELL_ALL
+                        || action == ShopClickActions.Action.SELL_GUI) && !offer.canSell()) continue;
+                lore.add(ChatColor.GRAY + clickAction.name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                        + ": " + action.name().toLowerCase(Locale.ROOT).replace('_', ' '));
+            }
             if (!plugin.trades().ready())
                 lore.add(ChatColor.RED + "Trading disabled / pending staff reconciliation");
             metadata.setLore(lore);
@@ -121,7 +191,7 @@ public final class ShopMenus implements Listener {
             holder.offerClicks.put(slot, offer);
         }
 
-        if (inventory.getItem(0) == null || fill == Material.AIR || !holder.offerClicks.containsKey(0)) {
+        if (!holder.offerClicks.containsKey(0) && inventory.getItem(0) == null) {
             inventory.setItem(0, item(Material.ARROW, ChatColor.YELLOW + "Shop categories",
                     java.util.Collections.singletonList(ChatColor.GRAY + "Return to the shop list")));
             holder.navigation.put(0, 0);
@@ -139,58 +209,100 @@ public final class ShopMenus implements Listener {
         player.openInventory(inventory);
     }
 
+    private static final int AMOUNT_ONE = -1001;
+    private static final int AMOUNT_STACK = -1002;
+    private static final int AMOUNT_CONFIRM = -1003;
+
     /**
-     * Amount selection is a separate server-owned inventory, not a client
-     * price request. Each chosen quantity is requoted on the main thread.
+     * Increment/decrement amount selection. Only a server-owned holder tracks
+     * the choice; the client item's text and size are never trade authority.
      */
     public void openAmount(Player player, String shopId, int page, ImportedCatalog.Offer offer, MarketQuote.Side side) {
+        if (side == MarketQuote.Side.BUY && !offer.canBuy()
+                || side == MarketQuote.Side.SELL && !offer.canSell()) return;
+        ItemStack template;
+        try { template = plugin.items().create(offer.materialOrSpecial(), 1); }
+        catch (RuntimeException failure) {
+            player.sendMessage(ChatColor.RED + failure.getMessage());
+            return;
+        }
         Holder holder = new Holder(shopId, page);
         holder.selectedOffer = offer;
         holder.selectedSide = side;
-        Inventory gui = Bukkit.createInventory(holder, 27, colors("&8Select " + side.name().toLowerCase(Locale.ROOT) + " quantity"));
+        holder.maxQuantity = Math.max(1, Math.min(template.getMaxStackSize(),
+                Math.min(64, plugin.getConfig().getInt("market.max-order", 64))));
+        holder.selectedQuantity = Math.min(holder.maxQuantity, Math.max(1, offer.quantity()));
+        Inventory gui = Bukkit.createInventory(holder, 27, plugin.text().render(player,
+                "&8Select " + side.name().toLowerCase(Locale.ROOT) + " quantity", true));
         holder.inventory = gui;
-        int[] quantities = {1, 4, 8, 16, 32, 64};
-        int[] slots = {10, 11, 12, 13, 14, 15};
-        ItemStack template;
-        try {
-            template = plugin.items().create(offer.materialOrSpecial(), 1);
-        } catch (RuntimeException unavailable) {
-            player.sendMessage(ChatColor.RED + unavailable.getMessage());
-            return;
-        }
-        for (int i = 0; i < quantities.length; i++) {
-            int q = quantities[i];
-            if (q > template.getMaxStackSize()) continue;
+        refreshAmount(player, holder);
+        player.openInventory(gui);
+    }
+
+    private void refreshAmount(Player player, Holder holder) {
+        if (holder.selectedOffer == null || holder.inventory == null) return;
+        Inventory gui = holder.inventory;
+        gui.clear();
+        holder.amountClicks.clear();
+        gui.setItem(10, item(Material.RED_DYE, ChatColor.RED + "Remove 10", List.of()));
+        gui.setItem(11, item(Material.RED_DYE, ChatColor.RED + "Remove 1", List.of()));
+        gui.setItem(15, item(Material.LIME_DYE, ChatColor.GREEN + "Add 1", List.of()));
+        gui.setItem(16, item(Material.LIME_DYE, ChatColor.GREEN + "Add 10", List.of()));
+        gui.setItem(20, item(Material.PAPER, ChatColor.YELLOW + "Set 1", List.of()));
+        gui.setItem(24, item(Material.CHEST, ChatColor.YELLOW + "Set max stack", List.of()));
+        gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Cancel", List.of()));
+        gui.setItem(23, item(Material.EMERALD, ChatColor.GREEN + "Confirm", List.of(
+                ChatColor.GRAY + "Click to complete this trade")));
+        holder.amountClicks.put(10, -10);
+        holder.amountClicks.put(11, -1);
+        holder.amountClicks.put(15, 1);
+        holder.amountClicks.put(16, 10);
+        holder.amountClicks.put(20, AMOUNT_ONE);
+        holder.amountClicks.put(24, AMOUNT_STACK);
+        holder.amountClicks.put(23, AMOUNT_CONFIRM);
+        holder.navigation.put(22, 2);
+
+        ItemStack selected;
+        try { selected = plugin.items().create(holder.selectedOffer.materialOrSpecial(), holder.selectedQuantity); }
+        catch (RuntimeException failure) { selected = new ItemStack(Material.BARRIER); }
+        ItemMeta meta = selected.getItemMeta();
+        if (meta != null) {
+            String label = holder.selectedOffer.displayName() != null
+                    ? plugin.text().render(player, holder.selectedOffer.displayName(), false)
+                    : ChatColor.YELLOW + pretty(holder.selectedOffer.materialOrSpecial());
+            meta.setDisplayName(label + ChatColor.WHITE + " x" + holder.selectedQuantity);
             List<String> lore = new ArrayList<>();
             try {
-                MarketQuote quote = plugin.market().quote(offer.marketId(), side, q, offer.sellRatio());
-                lore.add(ChatColor.GRAY + "Total: " + ChatColor.GOLD + quote.total().toPlainString()
+                MarketQuote quote = plugin.market().quote(holder.selectedOffer.marketId(),
+                        holder.selectedSide, holder.selectedQuantity, holder.selectedOffer.sellRatio());
+                lore.add(ChatColor.GRAY + "Quantity: " + ChatColor.WHITE + holder.selectedQuantity);
+                lore.add(ChatColor.GRAY + (holder.selectedSide == MarketQuote.Side.BUY ? "Buy" : "Sell")
+                        + " total: " + ChatColor.GOLD
+                        + plugin.trades().displayPrice(player, quote).toPlainString()
                         + " " + quote.currency());
-                holder.amountClicks.put(slots[i], q);
-            } catch (RuntimeException unavailable) {
-                lore.add(ChatColor.RED + unavailable.getMessage());
+            } catch (RuntimeException failure) {
+                lore.add(ChatColor.RED + "Unavailable: " + failure.getMessage());
+                holder.amountClicks.remove(23);
+                gui.setItem(23, item(Material.BARRIER, ChatColor.RED + "Cannot trade", List.of()));
             }
-            ItemStack button = template.clone();
-            button.setAmount(q);
-            ItemMeta meta = button.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName(ChatColor.YELLOW + Integer.toString(q) + " items");
-                meta.setLore(lore);
-                button.setItemMeta(meta);
-            }
-            gui.setItem(slots[i], button);
+            meta.setLore(lore);
+            selected.setItemMeta(meta);
         }
-        gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Back",
-                java.util.Collections.singletonList(ChatColor.GRAY + "Return without trading")));
-        holder.navigation.put(22, 2);
-        player.openInventory(gui);
+        gui.setItem(13, selected);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder() instanceof Holder)) return;
+        // Never turn events previously cancelled by protections into payment attempts.
+        boolean previouslyCancelled = event.isCancelled();
         event.setCancelled(true);
+        if (previouslyCancelled) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
+        ClickType click = event.getClick();
+        if (click != ClickType.LEFT && click != ClickType.RIGHT
+                && click != ClickType.SHIFT_LEFT && click != ClickType.SHIFT_RIGHT
+                && click != ClickType.MIDDLE) return;
         if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
         Player player = (Player) event.getWhoClicked();
         Holder holder = (Holder) event.getView().getTopInventory().getHolder();
@@ -205,18 +317,42 @@ public final class ShopMenus implements Listener {
             else Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page + step));
         } else if (holder.offerClicks.containsKey(slot)) {
             ImportedCatalog.Offer offer = holder.offerClicks.get(slot);
-            MarketQuote.Side side = event.isRightClick() ? MarketQuote.Side.SELL : MarketQuote.Side.BUY;
-            if (event.isShiftClick()) {
+            ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), click);
+            MarketQuote.Side side = switch (action) {
+                case BUY, BUY_GUI -> MarketQuote.Side.BUY;
+                case SELL, SELL_GUI, SELL_ALL -> MarketQuote.Side.SELL;
+                case NONE -> null;
+            };
+            if (side == null) return;
+            if (side == MarketQuote.Side.BUY && !offer.canBuy()
+                    || side == MarketQuote.Side.SELL && !offer.canSell()) return;
+            if (action == ShopClickActions.Action.BUY_GUI || action == ShopClickActions.Action.SELL_GUI) {
                 Bukkit.getScheduler().runTask(plugin, () -> openAmount(player, holder.shop, holder.page, offer, side));
             } else {
-                player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop, offer, side, offer.quantity()));
+                if (!canTradeClick(player)) return;
+                String result = action == ShopClickActions.Action.SELL_ALL
+                        ? plugin.trades().sellAll(player, holder.shop, offer)
+                        : plugin.trades().trade(player, holder.shop, offer, side, offer.quantity());
+                player.sendMessage(ChatColor.YELLOW + result);
                 Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
             }
         } else if (holder.selectedOffer != null && holder.amountClicks.containsKey(slot)) {
-            int quantity = holder.amountClicks.get(slot);
-            player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop,
-                    holder.selectedOffer, holder.selectedSide, quantity));
-            Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
+            int action = holder.amountClicks.get(slot);
+            if (action == AMOUNT_CONFIRM) {
+                if (!canTradeClick(player)) return;
+                player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop,
+                        holder.selectedOffer, holder.selectedSide, holder.selectedQuantity));
+                Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
+            } else {
+                if (action == AMOUNT_ONE) holder.selectedQuantity = 1;
+                else if (action == AMOUNT_STACK) holder.selectedQuantity = holder.maxQuantity;
+                else holder.selectedQuantity = Math.max(1,
+                        Math.min(holder.maxQuantity, holder.selectedQuantity + action));
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (player.isOnline() && player.getOpenInventory().getTopInventory().getHolder() == holder)
+                        refreshAmount(player, holder);
+                });
+            }
         }
     }
 
@@ -224,6 +360,15 @@ public final class ShopMenus implements Listener {
     public void onDrag(InventoryDragEvent event) {
         if (event.getView().getTopInventory().getHolder() instanceof Holder)
             event.setCancelled(true);
+    }
+
+    private boolean canTradeClick(Player player) {
+        // Prevent double-click/hotbar packet bursts from submitting multiple orders.
+        long now = System.nanoTime();
+        Long previous = lastTradeClick.get(player.getUniqueId());
+        if (previous != null && now - previous < 300_000_000L) return false;
+        lastTradeClick.put(player.getUniqueId(), now);
+        return true;
     }
 
     private static Material match(String name) {
@@ -266,6 +411,7 @@ public final class ShopMenus implements Listener {
         final Map<Integer, Integer> amountClicks = new HashMap<>();
         ImportedCatalog.Offer selectedOffer;
         MarketQuote.Side selectedSide;
+        int selectedQuantity, maxQuantity;
         Inventory inventory;
         Holder(String shop, int page) { this.shop = shop; this.page = page; }
         @Override public Inventory getInventory() { return inventory; }
