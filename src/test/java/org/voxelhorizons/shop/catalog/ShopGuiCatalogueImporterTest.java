@@ -227,6 +227,27 @@ class ShopGuiCatalogueImporterTest {
                      catalog.shops().get("b").offers().get(0).marketId());
     }
 
+    @Test void legacyPerItemPermissionsKeepOldLuckPermsNodes() throws Exception {
+        write("mining.yml", "mining:\n"
+                + "  enablePerItemPermissions: true\n"
+                + "  items:\n"
+                + "    '1': {type: item, item: {material: DIAMOND}, buyPrice: 100, sellPrice: 10, slot: 10}\n"
+                + "    '2': {type: item, item: {material: EMERALD}, buyPrice: 90, sellPrice: 9, slot: 11, permission: voxelshop.special.emerald}\n");
+        var offers = importShops().shops().get("mining").offers();
+        assertEquals("shopguiplus.item.mining.1", offers.get(0).permission());
+        assertEquals("voxelshop.special.emerald", offers.get(1).permission());
+    }
+
+    @Test void legacyDamageZeroIsSameMarketAsUnmodifiedItem() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    one: {type: item, item: {material: BREAD, damage: 0}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    one: {type: item, item: {material: BREAD}, buyPrice: 10, sellPrice: 1, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        assertTrue(catalog.shops().get("a").offers().get(0).itemMetadata().isPlain());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
