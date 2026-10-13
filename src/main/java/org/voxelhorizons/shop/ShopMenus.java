@@ -143,7 +143,7 @@ public final class ShopMenus implements Listener {
             }
             ItemStack icon;
             try {
-                icon = plugin.items().create(offer.materialOrSpecial(), offer.quantity());
+                icon = plugin.items().create(offer, offer.quantity());
             } catch (RuntimeException unavailable) {
                 icon = new ItemStack(Material.BARRIER);
             }
@@ -221,7 +221,7 @@ public final class ShopMenus implements Listener {
         if (side == MarketQuote.Side.BUY && !offer.canBuy()
                 || side == MarketQuote.Side.SELL && !offer.canSell()) return;
         ItemStack template;
-        try { template = plugin.items().create(offer.materialOrSpecial(), 1); }
+        try { template = plugin.items().create(offer, 1); }
         catch (RuntimeException failure) {
             player.sendMessage(ChatColor.RED + failure.getMessage());
             return;
@@ -263,7 +263,7 @@ public final class ShopMenus implements Listener {
         holder.navigation.put(22, 2);
 
         ItemStack selected;
-        try { selected = plugin.items().create(holder.selectedOffer.materialOrSpecial(), holder.selectedQuantity); }
+        try { selected = plugin.items().create(holder.selectedOffer, holder.selectedQuantity); }
         catch (RuntimeException failure) { selected = new ItemStack(Material.BARRIER); }
         ItemMeta meta = selected.getItemMeta();
         if (meta != null) {
