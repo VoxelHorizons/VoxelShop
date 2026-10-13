@@ -216,6 +216,17 @@ class ShopGuiCatalogueImporterTest {
         assertTrue(assertThrows(IOException.class, this::importShops).getMessage().contains("Navigation slot"));
     }
 
+    @Test void legacyEnchantmentAndColorAliasesDoNotCreateDuplicateMarkets() throws Exception {
+        write("a.yml", "a:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND_PICKAXE, name: '&6Miner', enchantments: ['DIG_SPEED:5']}, buyPrice: 250, sellPrice: 25, slot: 10}\n");
+        write("b.yml", "b:\n  items:\n"
+                + "    x: {type: item, item: {material: DIAMOND_PICKAXE, name: '§6Miner', enchantments: ['EFFICIENCY:5']}, buyPrice: 250, sellPrice: 25, slot: 10}\n");
+        var catalog = importShops();
+        assertEquals(1, catalog.markets().size());
+        assertEquals(catalog.shops().get("a").offers().get(0).marketId(),
+                     catalog.shops().get("b").offers().get(0).marketId());
+    }
+
     @Test void refusesUnknownOfferTypeAndFreePrice() throws Exception {
         write("one.yml", "one:\n  items:\n"
                 + "    1: {type: item, item: {material: DIAMOND}, buyPrice: 0, sellPrice: 1, slot: 10}\n");
