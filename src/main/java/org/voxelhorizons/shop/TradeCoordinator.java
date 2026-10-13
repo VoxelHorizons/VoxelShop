@@ -198,6 +198,30 @@ public final class TradeCoordinator {
         }
     }
 
+    /** Sell all matching ordinary/custom template items in guarded bounded batches. */
+    public synchronized String sellAll(Player player, String shopId, ImportedCatalog.Offer offer) {
+        if (!offer.canSell()) return "This offer cannot be sold.";
+        ItemStack template;
+        try {
+            template = plugin.items().create(offer.materialOrSpecial(), 1);
+        } catch (RuntimeException error) { return "Invalid item template: " + error.getMessage(); }
+        int sold = 0;
+        int maxBatches = plugin.getConfig().getInt("trading.max-sell-all-orders", 8);
+        maxBatches = Math.max(1, Math.min(64, maxBatches));
+        for (int i = 0; i < maxBatches && ready(); i++) {
+            int available = count(player, template);
+            if (available < 1) break;
+            int qty = Math.min(available, Math.min(64, template.getMaxStackSize()));
+            String result = trade(player, shopId, offer, MarketQuote.Side.SELL, qty);
+            if (!result.startsWith("Sold ")) {
+                return sold == 0 ? result : "Sold " + sold + " items; remaining batch: " + result;
+            }
+            sold += qty;
+        }
+        return sold > 0 ? "Sold " + sold + " items in bulk. Check remaining inventory for more."
+                : "No matching items in your inventory to sell.";
+    }
+
     public TradeJournal journal() { return journal; }
 
     public BigDecimal displayPrice(Player player, MarketQuote quote) {

@@ -226,14 +226,23 @@ public final class ShopMenus implements Listener {
             else Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page + step));
         } else if (holder.offerClicks.containsKey(slot)) {
             ImportedCatalog.Offer offer = holder.offerClicks.get(slot);
-            MarketQuote.Side side = event.isRightClick() ? MarketQuote.Side.SELL : MarketQuote.Side.BUY;
+            ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), click);
+            MarketQuote.Side side = switch (action) {
+                case BUY, BUY_GUI -> MarketQuote.Side.BUY;
+                case SELL, SELL_GUI, SELL_ALL -> MarketQuote.Side.SELL;
+                case NONE -> null;
+            };
+            if (side == null) return;
             if (side == MarketQuote.Side.BUY && !offer.canBuy()
                     || side == MarketQuote.Side.SELL && !offer.canSell()) return;
-            if (event.isShiftClick()) {
+            if (action == ShopClickActions.Action.BUY_GUI || action == ShopClickActions.Action.SELL_GUI) {
                 Bukkit.getScheduler().runTask(plugin, () -> openAmount(player, holder.shop, holder.page, offer, side));
             } else {
                 if (!canTradeClick(player)) return;
-                player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop, offer, side, offer.quantity()));
+                String result = action == ShopClickActions.Action.SELL_ALL
+                        ? plugin.trades().sellAll(player, holder.shop, offer)
+                        : plugin.trades().trade(player, holder.shop, offer, side, offer.quantity());
+                player.sendMessage(ChatColor.YELLOW + result);
                 Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
             }
         } else if (holder.selectedOffer != null && holder.amountClicks.containsKey(slot)) {

@@ -8,5 +8,15 @@ market:
   stock-capacity: 100000
 trading:
   enabled: false
+  max-sell-all-orders: 8
 gui:
   title: '&8ᴠᴏxᴇʟ ꜱʜᴏᴘ'
+
+  # ShopGUIPlus-style click-action mapping (safe and server-authoritative).
+  # Valid actions: BUY, SELL, SELL_ALL, BUY_GUI, SELL_GUI, NONE.
+  click-actions:
+    LEFT: BUY
+    RIGHT: SELL
+    SHIFT_LEFT: BUY_GUI
+    SHIFT_RIGHT: SELL_ALL
+    MIDDLE: SELL_ALL
