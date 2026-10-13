@@ -150,6 +150,11 @@ public final class VoxelShop extends JavaPlugin {
         return modifiers.total(player.getUniqueId(), quote,
                 permissionTiers.factor(player::hasPermission, quote.side()));
     }
+
+    public java.math.BigDecimal priceFactor(org.bukkit.entity.Player player, String marketId, MarketQuote.Side side) {
+        return modifiers.multiplier(player.getUniqueId(), marketId, side)
+                .multiply(permissionTiers.factor(player::hasPermission, side));
+    }
     public ShopItemFactory items() { return itemFactory; }
     public ShopText text() { return shopText; }
 }

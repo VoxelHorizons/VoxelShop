@@ -76,6 +76,25 @@ public final class TradeCoordinator {
         Material material = exact.getType();
         if (quantity < 1 || quantity > exact.getMaxStackSize())
             return "Invalid amount for this item.";
+        // A zero-stock market cannot quote an immediate BUY, but SELL would
+        // create stock that could then be repurchased. Guard the spread using
+        // every sell-enabled offer for the shared market, not only currently
+        // available quotes. Marginal prices reverse symmetrically on a roundtrip.
+        BigDecimal largestSellRatio = BigDecimal.ZERO;
+        for (ImportedCatalog.Shop otherShop : plugin.catalog().shops().values()) {
+            for (ImportedCatalog.Offer otherOffer : otherShop.offers()) {
+                if (otherOffer.canSell() && offer.marketId().equals(otherOffer.marketId())
+                        && otherOffer.sellRatio() != null)
+                    largestSellRatio = largestSellRatio.max(otherOffer.sellRatio());
+            }
+        }
+        if (largestSellRatio.signum() > 0) {
+            BigDecimal purchaseFactor = plugin.priceFactor(player, offer.marketId(), MarketQuote.Side.BUY);
+            BigDecimal payoutFactor = plugin.priceFactor(player, offer.marketId(), MarketQuote.Side.SELL);
+            if (largestSellRatio.multiply(payoutFactor).compareTo(purchaseFactor) >= 0)
+                return "Trade rejected: your market modifiers would allow round-trip arbitrage.";
+        }
+
         MarketQuote quote;
         try {
             quote = plugin.market().quote(offer.marketId(), side, quantity, offer.sellRatio());
