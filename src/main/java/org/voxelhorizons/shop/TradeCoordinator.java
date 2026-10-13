@@ -211,7 +211,11 @@ public final class TradeCoordinator {
         for (int i = 0; i < maxBatches && ready(); i++) {
             int available = count(player, template);
             if (available < 1) break;
-            int qty = Math.min(available, Math.min(64, template.getMaxStackSize()));
+            org.voxelhorizons.shop.market.MarketDefinition definition =
+                    plugin.catalog().markets().get(offer.marketId());
+            int room = definition.stockCapacity() - plugin.market().stock(offer.marketId());
+            int qty = Math.min(available, Math.min(room, Math.min(64, template.getMaxStackSize())));
+            if (qty <= 0) break;
             String result = trade(player, shopId, offer, MarketQuote.Side.SELL, qty);
             if (!result.startsWith("Sold ")) {
                 return sold == 0 ? result : "Sold " + sold + " items; remaining batch: " + result;

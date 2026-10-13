@@ -123,9 +123,18 @@ public final class ShopMenus implements Listener {
             } catch (RuntimeException exception) {
                 lore.add(ChatColor.RED + "Market unavailable: " + exception.getMessage());
             }
-            if (offer.canBuy()) lore.add(ChatColor.GRAY + "Left click: buy " + offer.quantity());
-            if (offer.canSell()) lore.add(ChatColor.GRAY + "Right click: sell " + offer.quantity());
-            lore.add(ChatColor.GRAY + "Shift-click: select amount");
+            for (ClickType clickAction : new ClickType[]{
+                    ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT, ClickType.SHIFT_RIGHT,
+                    ClickType.MIDDLE}) {
+                ShopClickActions.Action action = ShopClickActions.action(plugin.getConfig(), clickAction);
+                if (action == ShopClickActions.Action.NONE) continue;
+                if ((action == ShopClickActions.Action.BUY || action == ShopClickActions.Action.BUY_GUI)
+                        && !offer.canBuy()) continue;
+                if ((action == ShopClickActions.Action.SELL || action == ShopClickActions.Action.SELL_ALL
+                        || action == ShopClickActions.Action.SELL_GUI) && !offer.canSell()) continue;
+                lore.add(ChatColor.GRAY + clickAction.name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                        + ": " + action.name().toLowerCase(Locale.ROOT).replace('_', ' '));
+            }
             if (!plugin.trades().ready())
                 lore.add(ChatColor.RED + "Trading disabled / pending staff reconciliation");
             metadata.setLore(lore);
@@ -211,7 +220,8 @@ public final class ShopMenus implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         ClickType click = event.getClick();
         if (click != ClickType.LEFT && click != ClickType.RIGHT
-                && click != ClickType.SHIFT_LEFT && click != ClickType.SHIFT_RIGHT) return;
+                && click != ClickType.SHIFT_LEFT && click != ClickType.SHIFT_RIGHT
+                && click != ClickType.MIDDLE) return;
         if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
         Player player = (Player) event.getWhoClicked();
         Holder holder = (Holder) event.getView().getTopInventory().getHolder();
