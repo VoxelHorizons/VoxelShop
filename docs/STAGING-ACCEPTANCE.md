@@ -40,7 +40,10 @@ On a staging account, temporarily set `trading.enabled: true`:
 - In the amount GUI, change quantity by 1/10, set 1/max, and confirm. The
   **selected item** must show live quantity, total price and currency; the
   confirm button must not incorrectly display a stale amount.
-- Buy/sell ordinary vanilla items and at least one `voxelcore:voxel:...` item.
+- Buy/sell ordinary vanilla items, at least one `voxelcore:voxel:...` item,
+  one custom-name/lore item, an enchanted tool, a potion and a spawner. Check
+  exact components before and after trade; modified items must not match
+  vanilla items at premium sell prices.
   Reject items with mismatched display name, NBT, PDC, tint or custom metadata.
 - Test zero items, full inventory, insufficient funds, a closed shop, stock
   zero, stock capacity reached, item-only sell stock, and unstackable items.
@@ -87,3 +90,17 @@ bulk quantity pages and customization; provider-aware idempotent recovery;
 automated Paper end-to-end fault-injection and economic arbitrage simulation.
 This project currently provides an independent functional subset and must
 not be represented as 100% vendor parity.
+
+## 0.4.0 item identity and snapshot migration
+
+- When upgrading from 0.3, **back up** the existing
+  `market-state.properties` before first startup. Metadata-bearing offers now
+  receive distinct `.meta_<hash>` market IDs. Prior shared material stock
+  records are preserved as orphaned history; they are not automatically
+  transferred to different-priced variants. Review server log warnings.
+- Verify legacy `damage: 0` and aliases such as `DIG_SPEED` /
+  `EFFICIENCY` import consistently and do not split otherwise identical items.
+- Intentionally unsupported item fields must prevent trading and report the
+  specific shop/offer at startup, rather than silently producing plain items.
+- Verify shop-specific navigation slots/icon appearance, per-shop click
+  mappings, and `enablePerItemPermissions: true` inherited LuckPerms nodes.

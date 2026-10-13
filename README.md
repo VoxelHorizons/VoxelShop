@@ -2,7 +2,7 @@
 
 Independent Paper 26.2 shop, YAML importer and dynamic stock-pricing project for
 VoxelHorizons. **Not a fork or redistributable copy of the licensed ShopGUIPlus
-JAR.** Current development: `0.3.0-SNAPSHOT`.
+JAR.** Current development: `0.4.0-SNAPSHOT`.
 
 ## What works on this branch
 
@@ -75,6 +75,40 @@ quantity UI, complete external ShopGUIPlus API/event compatibility,
 crafting-arbitrage simulations, and in-server testing with the real player
 economy and authored configs. `trading.enabled` stays **false** by default.
 
+## New in 0.4.0 — item identity and shop-layout parity
+
+- **Safe item metadata on actual purchases and sales:** ShopGUI-style
+  `item.name`, `lore`, `enchantments`, `damage`, `customModelData`,
+  `unbreakable`, `flags`, `mob` (spawners), and `potion` are now
+  incorporated into the real server-owned ItemStack template. The same
+  template is used to check exact seller inventory metadata. Unsupported
+  components are **rejected at catalogue load**, not discarded.
+- **Separate variant markets:** A custom-named or enchanted diamond sword
+  does not share its stock or baseline with an ordinary diamond sword.
+  Item identities use stable hashed canonical metadata; old Bukkit enchant
+  aliases and legacy &-color variants are normalized. `damage: 0` is
+  treated as ordinary undamaged item.
+- **Migration durability:** Old markets removed/renamed by the new identity
+  scheme remain in `market-state.properties` and are listed as inactive
+  markets on startup. They are **not silently deleted**. Partial or corrupt
+  saved records for active markets fail closed.
+- **Shop menus:** Supports a shop's own `size: 9..54`, `buttons` navigation
+  slots and button item/material/title/lore, and per-shop `clickActions`.
+  Global click defaults continue to apply when not overridden.
+- **Existing LuckPerms item permissions:** With
+  `enablePerItemPermissions: true`, an imported offer retains the existing
+  `shopguiplus.item.<shop>.<itemId>` node unless it supplies an explicit
+  permission. Thus existing rank permissions can be migrated without making
+  restricted shop items publicly available.
+
+**Important:** A runtime Paper build and real inventory/economy test are still
+required to establish whether a particular potion, spawner, enchantment or
+plugin-authored ItemStack roundtrips identically. Item-component formats
+from other plugins, custom potion effects, banners, fireworks, skull texture
+providers and full ShopGUIPlus item providers are not yet supported.
+Invalid unsupported YAML stops catalogue loading rather than creating
+incorrect items. Trading remains disabled by default.
+
 ## Install for staging
 
 1. Use **Paper 26.2 / Java 25** and a working compatible Vault economy provider.
@@ -101,13 +135,13 @@ transaction audit and market stock, then manually reconcile before calling
 
 ### Current limitations
 
-This is **not yet a production-certified full ShopGUIPlus replacement**. It
-does not currently cover VoxelCore custom item trading, all external item
-providers, custom GUI click-action configurations, every special offer type,
-per-player price modifiers, the full ShopGUIPlus API/event compatibility
-surface, automated provider-specific crash reconciliation, or complete
-crafting-arbitrage protections. Folia is unsupported. Test on your exact
-economy backend before letting players trade.
+This is **not yet a production-certified full ShopGUIPlus replacement**.
+Exact static VoxelCore items and supported vanilla item metadata can be
+transacted, but mutable item variants, third-party item providers, complex
+shop offer types (commands/permissions/enchantment services), sound/localization
+customisation and the original ShopGUIPlus binary API are not implemented.
+Provider-specific crash reconciliation and full crafting-arbitrage tests
+remain outstanding. Folia is unsupported. Use a backed-up staging server.
 
 The market seeds from imported YAML are independent of original ShopGUIPlus
 code. The licensed JAR, server data and user-private YAML must stay out of
