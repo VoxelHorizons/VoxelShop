@@ -107,7 +107,11 @@ public final class ShopMenus implements Listener {
             } catch (RuntimeException exception) {
                 lore.add(ChatColor.RED + "Market unavailable: " + exception.getMessage());
             }
-            lore.add(ChatColor.DARK_GRAY + "Preview only — purchases and sales disabled");
+            lore.add(ChatColor.GRAY + "Left click: buy " + offer.quantity());
+            lore.add(ChatColor.GRAY + "Right click: sell " + offer.quantity());
+            lore.add(ChatColor.GRAY + "Shift-click: select amount");
+            if (!plugin.trades().ready())
+                lore.add(ChatColor.RED + "Trading disabled / pending staff reconciliation");
             metadata.setLore(lore);
             icon.setItemMeta(metadata);
             inventory.setItem(slot, icon);
@@ -132,6 +136,39 @@ public final class ShopMenus implements Listener {
         player.openInventory(inventory);
     }
 
+    /**
+     * Amount selection is a separate server-owned inventory, not a client
+     * price request. Each chosen quantity is requoted on the main thread.
+     */
+    public void openAmount(Player player, String shopId, int page, ImportedCatalog.Offer offer, MarketQuote.Side side) {
+        Holder holder = new Holder(shopId, page);
+        holder.selectedOffer = offer;
+        holder.selectedSide = side;
+        Inventory gui = Bukkit.createInventory(holder, 27, colors("&8Select " + side.name().toLowerCase(Locale.ROOT) + " quantity"));
+        holder.inventory = gui;
+        int[] quantities = {1, 4, 8, 16, 32, 64};
+        int[] slots = {10, 11, 12, 13, 14, 15};
+        Material material = match(offer.materialOrSpecial());
+        for (int i = 0; i < quantities.length; i++) {
+            int q = quantities[i];
+            if (q > material.getMaxStackSize()) continue;
+            List<String> lore = new ArrayList<>();
+            try {
+                MarketQuote quote = plugin.market().quote(offer.marketId(), side, q, offer.sellRatio());
+                lore.add(ChatColor.GRAY + "Total: " + ChatColor.GOLD + quote.total().toPlainString()
+                        + " " + quote.currency());
+                holder.amountClicks.put(slots[i], q);
+            } catch (RuntimeException unavailable) {
+                lore.add(ChatColor.RED + unavailable.getMessage());
+            }
+            gui.setItem(slots[i], item(material, ChatColor.YELLOW + Integer.toString(q) + " items", lore));
+        }
+        gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Back",
+                java.util.Collections.singletonList(ChatColor.GRAY + "Return without trading")));
+        holder.navigation.put(22, 2);
+        player.openInventory(gui);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder() instanceof Holder)) return;
@@ -147,10 +184,22 @@ public final class ShopMenus implements Listener {
         } else if (holder.navigation.containsKey(slot)) {
             int step = holder.navigation.get(slot);
             if (step == 0) Bukkit.getScheduler().runTask(plugin, () -> openCategories(player));
+            else if (step == 2) Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
             else Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page + step));
         } else if (holder.offerClicks.containsKey(slot)) {
-            player.sendMessage(ChatColor.YELLOW + "VoxelShop is running in preview mode. "
-                    + "Trading will be enabled only after the transaction-safety layer is complete.");
+            ImportedCatalog.Offer offer = holder.offerClicks.get(slot);
+            MarketQuote.Side side = event.isRightClick() ? MarketQuote.Side.SELL : MarketQuote.Side.BUY;
+            if (event.isShiftClick()) {
+                Bukkit.getScheduler().runTask(plugin, () -> openAmount(player, holder.shop, holder.page, offer, side));
+            } else {
+                player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop, offer, side, offer.quantity()));
+                Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
+            }
+        } else if (holder.selectedOffer != null && holder.amountClicks.containsKey(slot)) {
+            int quantity = holder.amountClicks.get(slot);
+            player.sendMessage(ChatColor.YELLOW + plugin.trades().trade(player, holder.shop,
+                    holder.selectedOffer, holder.selectedSide, quantity));
+            Bukkit.getScheduler().runTask(plugin, () -> openShop(player, holder.shop, holder.page));
         }
     }
 
@@ -197,6 +246,9 @@ public final class ShopMenus implements Listener {
         final Map<Integer, String> categoryClicks = new HashMap<>();
         final Map<Integer, ImportedCatalog.Offer> offerClicks = new HashMap<>();
         final Map<Integer, Integer> navigation = new HashMap<>();
+        final Map<Integer, Integer> amountClicks = new HashMap<>();
+        ImportedCatalog.Offer selectedOffer;
+        MarketQuote.Side selectedSide;
         Inventory inventory;
         Holder(String shop, int page) { this.shop = shop; this.page = page; }
         @Override public Inventory getInventory() { return inventory; }

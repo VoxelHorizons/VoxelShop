@@ -10,6 +10,8 @@ import org.voxelhorizons.shop.market.MarketEngine;
 import org.voxelhorizons.shop.market.MarketPolicy;
 
 import java.nio.file.Files;
+import org.voxelhorizons.shop.state.MarketSnapshotStore;
+import org.voxelhorizons.shop.state.TradeJournal;
 import java.nio.file.Path;
 import java.util.Locale;
 
@@ -19,12 +21,18 @@ public final class VoxelShop extends JavaPlugin {
     private MarketEngine market;
     private VaultUnlockedBridge economy;
     private ShopMenus menus;
+    private MarketSnapshotStore snapshots;
+    private TradeJournal journal;
+    private TradeCoordinator trades;
 
     @Override public void onEnable() {
         saveDefaultConfig();
         economy = new VaultUnlockedBridge(getName());
         try {
+            snapshots = new MarketSnapshotStore(getDataFolder().toPath().resolve("market-state.properties"));
+            journal = new TradeJournal(getDataFolder().toPath().resolve("journal"));
             loadCatalog();
+            trades = new TradeCoordinator(this, journal, snapshots);
         } catch (Exception exception) {
             getLogger().severe("Could not load shop catalogue: " + exception.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -39,13 +47,22 @@ public final class VoxelShop extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        command.setExecutor(new ShopCommand(this));
-        command.setTabCompleter(new ShopCommand(this));
+        ShopCommand handler = new ShopCommand(this);
+        command.setExecutor(handler);
+        command.setTabCompleter(handler);
 
         if (!economy.provider().isPresent())
             getLogger().warning("No VaultUnlocked vault2 Economy provider found: shop browsing works, trading is disabled.");
+        try {
+            long unresolved = journal.unresolved().size();
+            if (unresolved > 0) getLogger().severe("TRADING LOCKED: " + unresolved
+                    + " unresolved transaction(s). Review /vshop pending before reconciliation.");
+        } catch (Exception error) {
+            getLogger().severe("Cannot inspect transaction journal: " + error.getMessage());
+        }
         getLogger().info("VoxelShop loaded " + catalog.shops().size() + " shops and "
-                + catalog.markets().size() + " markets (preview-only mode)");
+                + catalog.markets().size() + " markets (trading "
+                + (trades.ready() ? "enabled" : "disabled") + ")");
     }
 
     public void loadCatalog() throws Exception {
@@ -64,6 +81,10 @@ public final class VoxelShop extends JavaPlugin {
         MarketPolicy policy = MarketPolicy.defaults();
         MarketEngine created = new MarketEngine(policy);
         for (MarketDefinition definition : imported.markets().values()) created.register(definition);
+        snapshots.restore(created, imported.markets());
+        // If an earlier state exists, it has been validated before publishing.
+        // Initial snapshot is also durable so runtime restarts cannot reroll stock.
+        snapshots.save(created, imported.markets());
         this.catalog = imported;
         this.market = created;
     }
@@ -72,4 +93,5 @@ public final class VoxelShop extends JavaPlugin {
     public MarketEngine market() { return market; }
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }
+    public TradeCoordinator trades() { return trades; }
 }

@@ -32,6 +32,26 @@ public final class ShopCommand implements CommandExecutor, TabCompleter {
             }
             return true;
         }
+        if (args.length > 0 && ("pending".equalsIgnoreCase(args[0]) || "reconcile".equalsIgnoreCase(args[0]))) {
+            if (!sender.hasPermission("voxelshop.admin")) {
+                sender.sendMessage(ChatColor.RED + "No permission."); return true;
+            }
+            try {
+                if ("pending".equalsIgnoreCase(args[0])) {
+                    List<String> outstanding = plugin.trades().journal().unresolved();
+                    sender.sendMessage(ChatColor.YELLOW + "Unresolved trades: " + outstanding.size());
+                    for (String entry : outstanding) sender.sendMessage(ChatColor.GRAY + entry);
+                } else if (args.length == 3 && "--confirmed".equalsIgnoreCase(args[2])) {
+                    plugin.trades().journal().acknowledge(java.util.UUID.fromString(args[1]));
+                    sender.sendMessage(ChatColor.YELLOW + "Marked reviewed; you must have independently reconciled "
+                            + "the player's items, wallet and market stock before running this command.");
+                } else {
+                    sender.sendMessage(ChatColor.RED + "Usage: /vshop reconcile <transaction UUID> --confirmed "
+                            + "(manual reconciliation ONLY)");
+                }
+            } catch (Exception ex) { sender.sendMessage(ChatColor.RED + "Journal error: " + ex.getMessage()); }
+            return true;
+        }
         if (!(sender instanceof Player)) {
             sender.sendMessage("Only players can open the shop UI.");
             return true;
@@ -62,6 +82,10 @@ public final class ShopCommand implements CommandExecutor, TabCompleter {
                 if (id.startsWith(args[0].toLowerCase(Locale.ROOT))) result.add(id);
             if (sender.hasPermission("voxelshop.admin") && "reload".startsWith(args[0].toLowerCase(Locale.ROOT)))
                 result.add("reload");
+            if (sender.hasPermission("voxelshop.admin")) {
+                for (String admin : new String[]{"pending", "reconcile"})
+                    if (admin.startsWith(args[0].toLowerCase(Locale.ROOT))) result.add(admin);
+            }
             return result;
         }
         return Collections.emptyList();
