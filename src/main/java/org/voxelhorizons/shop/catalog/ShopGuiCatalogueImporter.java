@@ -101,6 +101,10 @@ public final class ShopGuiCatalogueImporter {
                     buttons.put(name, slot);
                 }
             }
+            Object perItem = definition.get("enablePerItemPermissions");
+            if (perItem != null && !(perItem instanceof Boolean))
+                throw new IOException("enablePerItemPermissions must be boolean at " + shopId);
+            boolean enabledPerItemPermissions = Boolean.TRUE.equals(perItem);
             String shopCurrency = String.valueOf(definition.containsKey("currency")
                     ? definition.get("currency") : currency).toLowerCase(Locale.ROOT);
             if (!shopCurrency.matches("[a-z0-9_.:-]+"))
@@ -154,7 +158,8 @@ public final class ShopGuiCatalogueImporter {
                 boolean canSell = sell != null && sell.signum() > 0;
                 if (!canBuy && !canSell || buy != null && buy.signum() == 0 || sell != null && sell.signum() == 0)
                     throw new IOException("No valid buy/sell direction or zero price at " + where);
-                String permission = item.containsKey("permission") ? String.valueOf(item.get("permission")) : null;
+                String permission = item.containsKey("permission") ? String.valueOf(item.get("permission"))
+                        : enabledPerItemPermissions ? "shopguiplus.item." + shopId + "." + offerId : null;
                 if (permission != null && !permission.matches("[a-zA-Z0-9_.:-]+"))
                     throw new IOException("Invalid permission at " + where);
                 String displayName = stack.containsKey("name") ? String.valueOf(stack.get("name"))
