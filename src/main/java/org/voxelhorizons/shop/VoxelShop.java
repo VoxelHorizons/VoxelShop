@@ -4,6 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
+import org.voxelhorizons.shop.catalog.MainMenuLayout;
+import org.voxelhorizons.shop.catalog.MainMenuImporter;
 import org.voxelhorizons.shop.catalog.ShopGuiCatalogueImporter;
 import org.voxelhorizons.shop.market.MarketDefinition;
 import org.voxelhorizons.shop.market.MarketEngine;
@@ -19,6 +21,7 @@ import java.util.Locale;
 /** Paper entrypoint for the independent VoxelShop implementation. */
 public final class VoxelShop extends JavaPlugin {
     private ImportedCatalog catalog;
+    private MainMenuLayout mainMenu;
     private MarketEngine market;
     private VaultUnlockedBridge economy;
     private ShopMenus menus;
@@ -94,11 +97,18 @@ public final class VoxelShop extends JavaPlugin {
         // If an earlier state exists, it has been validated before publishing.
         // Initial snapshot is also durable so runtime restarts cannot reroll stock.
         snapshots.save(created, imported.markets());
+        Path menuSource = getDataFolder().toPath().resolve("menus.yml");
+        if (!Files.isRegularFile(menuSource))
+            menuSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "config.yml");
+        MainMenuLayout parsedMenu = Files.isRegularFile(menuSource)
+                ? MainMenuImporter.read(menuSource) : null;
+        this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
     }
 
     public ImportedCatalog catalog() { return catalog; }
+    public MainMenuLayout mainMenu() { return mainMenu; }
     public MarketEngine market() { return market; }
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }

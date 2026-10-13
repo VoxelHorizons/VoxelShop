@@ -15,6 +15,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.voxelhorizons.shop.catalog.ImportedCatalog;
+import org.voxelhorizons.shop.catalog.MainMenuLayout;
 import org.voxelhorizons.shop.market.MarketQuote;
 
 import java.math.BigDecimal;
@@ -36,19 +37,59 @@ public final class ShopMenus implements Listener {
     public ShopMenus(VoxelShop plugin) { this.plugin = plugin; }
 
     public void openCategories(Player player) {
+        MainMenuLayout layout = plugin.mainMenu();
         Holder holder = new Holder(null, 1);
-        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player,
-                plugin.getConfig().getString("gui.title", "&8VoxelShop"), true));
+        String title = layout == null
+                ? plugin.getConfig().getString("gui.title", "&8VoxelShop") : layout.title();
+        Inventory inventory = Bukkit.createInventory(holder, layout == null ? 54 : layout.size(),
+                plugin.text().render(player, title, true));
         holder.inventory = inventory;
-        int slot = 0;
-        for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
-            if (!player.hasPermission("voxelshop.shop." + shop.id())
-                    && !player.hasPermission("voxelshop.shop.*")) continue;
-            if (slot >= 54) break;
-            ItemStack icon = item(Material.CHEST, ChatColor.GOLD + plugin.text().render(player, shop.title(), false),
-                    Arrays.asList(ChatColor.GRAY + "Click to browse", ChatColor.DARK_GRAY + shop.id()));
-            inventory.setItem(slot, icon);
-            holder.categoryClicks.put(slot++, shop.id());
+        if (layout != null) {
+            Material filler = match(layout.fillerMaterial());
+            if (filler != Material.AIR && filler != Material.BARRIER)
+                for (int slot = 0; slot < inventory.getSize(); slot++)
+                    inventory.setItem(slot, item(filler,
+                            plugin.text().render(player, layout.fillerName(), false), List.of()));
+            for (MainMenuLayout.Entry entry : layout.entries()) {
+                if (entry.permission() != null && !player.hasPermission(entry.permission())) continue;
+                if (entry.shop() != null && !plugin.catalog().shops().containsKey(entry.shop())) continue;
+                if (entry.shop() != null && !player.hasPermission("voxelshop.shop." + entry.shop())
+                        && !player.hasPermission("voxelshop.shop.*")) continue;
+                ItemStack icon;
+                try { icon = plugin.items().create(entry.material(), entry.quantity()); }
+                catch (RuntimeException unavailable) { icon = new ItemStack(Material.BARRIER); }
+                ItemMeta meta = icon.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName(plugin.text().render(player, entry.name(), false));
+                    List<String> lore = new ArrayList<>();
+                    String balance = "";
+                    if ("balance".equalsIgnoreCase(entry.special())) {
+                        try {
+                            String currency = plugin.getConfig().getString("economy.default-currency", "coins");
+                            balance = plugin.economy().balance(player, currency).toPlainString();
+                        } catch (RuntimeException ignored) { balance = "Unavailable"; }
+                    }
+                    for (String line : entry.lore())
+                        lore.add(plugin.text().render(player, line.replace("%balance%", balance), false));
+                    meta.setLore(lore);
+                    icon.setItemMeta(meta);
+                }
+                inventory.setItem(entry.slot(), icon);
+                if (entry.shop() != null) holder.categoryClicks.put(entry.slot(), entry.shop());
+            }
+        } else {
+            int slot = 0;
+            for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
+                if (!player.hasPermission("voxelshop.shop." + shop.id())
+                        && !player.hasPermission("voxelshop.shop.*")) continue;
+                if (slot >= inventory.getSize()) break;
+                ItemStack icon = item(Material.CHEST,
+                        ChatColor.GOLD + plugin.text().render(player, shop.title(), false),
+                        Arrays.asList(ChatColor.GRAY + "Click to browse",
+                                ChatColor.DARK_GRAY + shop.id()));
+                inventory.setItem(slot, icon);
+                holder.categoryClicks.put(slot++, shop.id());
+            }
         }
         player.openInventory(inventory);
     }
