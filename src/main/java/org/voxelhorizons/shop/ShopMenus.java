@@ -37,15 +37,15 @@ public final class ShopMenus implements Listener {
 
     public void openCategories(Player player) {
         Holder holder = new Holder(null, 1);
-        Inventory inventory = Bukkit.createInventory(holder, 54, colors(
-                plugin.getConfig().getString("gui.title", "&8VoxelShop")));
+        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player,
+                plugin.getConfig().getString("gui.title", "&8VoxelShop"), true));
         holder.inventory = inventory;
         int slot = 0;
         for (ImportedCatalog.Shop shop : plugin.catalog().shops().values()) {
             if (!player.hasPermission("voxelshop.shop." + shop.id())
                     && !player.hasPermission("voxelshop.shop.*")) continue;
             if (slot >= 54) break;
-            ItemStack icon = item(Material.CHEST, ChatColor.GOLD + shop.title(),
+            ItemStack icon = item(Material.CHEST, ChatColor.GOLD + plugin.text().render(player, shop.title(), false),
                     Arrays.asList(ChatColor.GRAY + "Click to browse", ChatColor.DARK_GRAY + shop.id()));
             inventory.setItem(slot, icon);
             holder.categoryClicks.put(slot++, shop.id());
@@ -66,12 +66,12 @@ public final class ShopMenus implements Listener {
         }
 
         Holder holder = new Holder(shopId, page);
-        Inventory inventory = Bukkit.createInventory(holder, 54, colors(shop.title()));
+        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.text().render(player, shop.title(), true));
         holder.inventory = inventory;
         Material fill = match(shop.fillerMaterial());
         if (fill != Material.AIR) {
             for (int i = 0; i < 54; i++)
-                inventory.setItem(i, item(fill, colors(shop.fillerName()), java.util.Collections.emptyList()));
+                inventory.setItem(i, item(fill, plugin.text().render(player, shop.fillerName(), false), java.util.Collections.emptyList()));
         }
         boolean nextPage = false;
         for (ImportedCatalog.Offer offer : shop.offers()) {
@@ -102,9 +102,9 @@ public final class ShopMenus implements Listener {
             ItemMeta metadata = icon.getItemMeta();
             if (metadata == null) continue;
             metadata.setDisplayName(offer.displayName() == null
-                    ? ChatColor.WHITE + pretty(offer.materialOrSpecial()) : colors(offer.displayName()));
+                    ? ChatColor.WHITE + pretty(offer.materialOrSpecial()) : plugin.text().render(player, offer.displayName(), false));
             List<String> lore = new ArrayList<>();
-            for (String line : offer.displayLore()) lore.add(colors(line));
+            for (String line : offer.displayLore()) lore.add(plugin.text().render(player, line, false));
             lore.add(ChatColor.GRAY + "Original buy: " + ChatColor.GOLD
                     + (offer.canBuy() ? offer.baselineBuy() : "Disabled"));
             lore.add(ChatColor.GRAY + "Original sell: " + ChatColor.GOLD
@@ -162,7 +162,7 @@ public final class ShopMenus implements Listener {
         Holder holder = new Holder(shopId, page);
         holder.selectedOffer = offer;
         holder.selectedSide = side;
-        Inventory gui = Bukkit.createInventory(holder, 27, colors("&8Select " + side.name().toLowerCase(Locale.ROOT) + " quantity"));
+        Inventory gui = Bukkit.createInventory(holder, 27, plugin.text().render(player, "&8Select " + side.name().toLowerCase(Locale.ROOT) + " quantity", true));
         holder.inventory = gui;
         int[] quantities = {1, 4, 8, 16, 32, 64};
         int[] slots = {10, 11, 12, 13, 14, 15};

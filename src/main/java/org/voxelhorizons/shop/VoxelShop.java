@@ -27,6 +27,7 @@ public final class VoxelShop extends JavaPlugin {
     private TradeCoordinator trades;
     private PriceModifiers modifiers;
     private final ShopItemFactory itemFactory = new ShopItemFactory();
+    private final ShopText shopText = new ShopText();
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -104,4 +105,5 @@ public final class VoxelShop extends JavaPlugin {
     public TradeCoordinator trades() { return trades; }
     public PriceModifiers modifiers() { return modifiers; }
     public ShopItemFactory items() { return itemFactory; }
+    public ShopText text() { return shopText; }
 }
