@@ -64,7 +64,14 @@ public final class PriceModifiers {
     }
 
     public synchronized BigDecimal total(UUID player, MarketQuote quote) {
-        BigDecimal adjusted = quote.total().multiply(multiplier(player, quote.marketId(), quote.side()));
+        return total(player, quote, BigDecimal.ONE);
+    }
+
+    /** Applies optional rank adjustment in the same rounding step as overrides. */
+    public synchronized BigDecimal total(UUID player, MarketQuote quote, BigDecimal rankFactor) {
+        BigDecimal factor = multiplier(player, quote.marketId(), quote.side())
+                .multiply(validated(rankFactor));
+        BigDecimal adjusted = quote.total().multiply(factor);
         BigDecimal total = adjusted.setScale(quote.total().scale(),
                 quote.side() == MarketQuote.Side.BUY ? RoundingMode.CEILING : RoundingMode.DOWN);
         if (total.signum() <= 0) throw new IllegalStateException("Modified quote is zero; trade refused");
