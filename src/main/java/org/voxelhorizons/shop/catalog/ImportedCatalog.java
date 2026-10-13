@@ -30,13 +30,16 @@ public final class ImportedCatalog {
         private final int size;
         private final Map<String,String> clickActions;
         private final Map<String,Integer> buttonSlots;
+        private final Map<String,NavigationIcon> buttonIcons;
 
         Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers) {
-            this(id, title, currency, fillerMaterial, fillerName, offers, 54, Map.of(), Map.of());
+            this(id, title, currency, fillerMaterial, fillerName, offers, 54, Map.of(), Map.of(), Map.of());
         }
 
         Shop(String id, String title, String currency, String fillerMaterial, String fillerName, List<Offer> offers,
-             int size, Map<String,String> clickActions, Map<String,Integer> buttonSlots) {
+             int size, Map<String,String> clickActions, Map<String,Integer> buttonSlots,
+             Map<String,NavigationIcon> buttonIcons) {
+            this.buttonIcons = Collections.unmodifiableMap(new LinkedHashMap<>(buttonIcons));
             this.size = size;
             this.clickActions = Collections.unmodifiableMap(new LinkedHashMap<>(clickActions));
             this.buttonSlots = Collections.unmodifiableMap(new LinkedHashMap<>(buttonSlots));
@@ -56,6 +59,16 @@ public final class ImportedCatalog {
         public int size() { return size; }
         public Map<String,String> clickActions() { return clickActions; }
         public int buttonSlot(String name, int fallback) { return buttonSlots.getOrDefault(name, fallback); }
+        public NavigationIcon buttonIcon(String name) { return buttonIcons.get(name); }
+        public Map<String,NavigationIcon> buttonIcons() { return buttonIcons; }
+    }
+
+    public record NavigationIcon(String material, String name, List<String> lore, int quantity) {
+        public NavigationIcon {
+            lore = List.copyOf(lore);
+            if (quantity < 1 || quantity > 64)
+                throw new IllegalArgumentException("Invalid button icon quantity");
+        }
     }
 
     public static final class Offer {

@@ -88,6 +88,7 @@ public final class ShopGuiCatalogueImporter {
                 }
             }
             Map<String,Integer> buttons = new LinkedHashMap<>();
+            Map<String,ImportedCatalog.NavigationIcon> buttonIcons = new LinkedHashMap<>();
             if (definition.get("buttons") != null) {
                 Map<?,?> configured = mapping(definition.get("buttons"), shopId + ".buttons");
                 for (var e : configured.entrySet()) {
@@ -99,6 +100,28 @@ public final class ShopGuiCatalogueImporter {
                     if (slot < -1 || slot >= size)
                         throw new IOException("Navigation slot outside inventory at " + shopId + "." + name);
                     buttons.put(name, slot);
+                    if (properties.get("item") != null) {
+                        Map<?,?> image = mapping(properties.get("item"), shopId + ".buttons." + name + ".item");
+                        String materialName = String.valueOf(image.get("material")).toUpperCase(Locale.ROOT);
+                        if (!materialName.matches("[A-Z0-9_]+"))
+                            throw new IOException("Invalid navigation icon material at " + shopId + "." + name);
+                        String label = image.get("name") == null ? null : String.valueOf(image.get("name"));
+                        int amount = integer(image.containsKey("quantity") ? image.get("quantity") : 1,
+                                shopId + ".buttons." + name + ".item.quantity");
+                        if (amount < 1 || amount > 64) throw new IOException("Invalid button icon quantity");
+                        List<String> lore = new ArrayList<>();
+                        if (image.get("lore") != null) {
+                            if (!(image.get("lore") instanceof List<?> lines) || lines.size() > 32)
+                                throw new IOException("Invalid button lore");
+                            for (Object line : lines) {
+                                if (!(line instanceof String text) || text.length() > 512)
+                                    throw new IOException("Invalid button lore line");
+                                lore.add(text);
+                            }
+                        }
+                        buttonIcons.put(name, new ImportedCatalog.NavigationIcon(
+                                materialName, label, lore, amount));
+                    }
                 }
             }
             Object perItem = definition.get("enablePerItemPermissions");
@@ -217,7 +240,7 @@ public final class ShopGuiCatalogueImporter {
                         canBuy, canSell, permission, displayName, displayLore, itemMetadata));
             }
             shops.put(shopId, new ImportedCatalog.Shop(shopId, title, shopCurrency,
-                    fillerMaterial, fillerName, offers, size, shopClicks, buttons));
+                    fillerMaterial, fillerName, offers, size, shopClicks, buttons, buttonIcons));
         }
         // Normalize sell-only margins only after every shop is imported.
         // This preserves original sell payouts when an authoritative BUY
@@ -247,7 +270,8 @@ public final class ShopGuiCatalogueImporter {
                     shop.fillerMaterial(), shop.fillerName(), offers, shop.size(), shop.clickActions(),
                     Map.of("goBack", shop.buttonSlot("goBack", 0),
                            "previousPage", shop.buttonSlot("previousPage", shop.size() - 9),
-                           "nextPage", shop.buttonSlot("nextPage", shop.size() - 1))));
+                           "nextPage", shop.buttonSlot("nextPage", shop.size() - 1)),
+                    shop.buttonIcons()));
         }
         return new ImportedCatalog(normalized, markets);
     }
