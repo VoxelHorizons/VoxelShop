@@ -66,6 +66,8 @@ public final class TradeJournal {
         if (!Files.isRegularFile(from)) throw new IllegalArgumentException("No pending entry: " + id);
         Path to = closed.resolve("reviewed-" + id + ".properties");
         Files.move(from, to, StandardCopyOption.ATOMIC_MOVE);
+        MarketSnapshotStore.forceDirectory(pending);
+        MarketSnapshotStore.forceDirectory(closed);
     }
 
     public final class Entry {
@@ -97,6 +99,8 @@ public final class TradeJournal {
             stage("COMPLETED");
             Files.move(pending.resolve(id + ".properties"),
                     closed.resolve(id + ".properties"), StandardCopyOption.ATOMIC_MOVE);
+            MarketSnapshotStore.forceDirectory(pending);
+            MarketSnapshotStore.forceDirectory(closed);
         }
     }
 }

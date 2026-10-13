@@ -69,8 +69,16 @@ public final class MarketSnapshotStore {
                 channel.force(true);
             }
             Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            forceDirectory(target.getParent());
         } finally {
             Files.deleteIfExists(temp);
+        }
+    }
+
+    /** Persist the directory entry as well as the file bytes on Linux. */
+    public static void forceDirectory(Path directory) throws IOException {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
         }
     }
 }
