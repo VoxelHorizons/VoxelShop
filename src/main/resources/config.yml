@@ -28,3 +28,15 @@ gui:
     SHIFT_LEFT: BUY_GUI
     SHIFT_RIGHT: SELL_ALL
     MIDDLE: SELL_ALL
+
+# Optional highest-priority LuckPerms-compatible permission tier. Tiers do NOT
+# stack; they combine once with any explicit per-player admin modifier.
+# modifier values between 0.25 and 4.0 are accepted; unsafe buy/sell round
+# trips are rejected when quoted.
+modifiers:
+  permission-tiers:
+    # premium:
+    #   permission: voxelshop.tier.premium
+    #   priority: 20
+    #   buy: 0.90
+    #   sell: 1.05

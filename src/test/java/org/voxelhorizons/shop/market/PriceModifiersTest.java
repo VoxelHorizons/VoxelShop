@@ -49,6 +49,13 @@ class PriceModifiersTest {
         assertThrows(IOException.class, () -> new PriceModifiers(file));
     }
 
+    @Test void combinesRankWithPlayerModifierBeforeRounding() throws Exception {
+        PriceModifiers service = new PriceModifiers(folder.resolve("m.properties"));
+        service.set(player, "*", MarketQuote.Side.BUY, new BigDecimal("0.875"));
+        assertEquals(new BigDecimal("14.00"),
+                service.total(player, buy(), new BigDecimal("0.80")));
+    }
+
     @Test void defaultsToUnmodifiedPrice() throws Exception {
         PriceModifiers service = new PriceModifiers(folder.resolve("m.properties"));
         assertEquals(buy().total(), service.total(player, buy()));

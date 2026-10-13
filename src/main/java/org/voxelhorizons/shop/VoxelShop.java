@@ -12,6 +12,8 @@ import org.voxelhorizons.shop.market.MarketDefinition;
 import org.voxelhorizons.shop.market.MarketEngine;
 import org.voxelhorizons.shop.market.MarketPolicy;
 import org.voxelhorizons.shop.market.PriceModifiers;
+import org.voxelhorizons.shop.market.PermissionPriceTiers;
+import org.voxelhorizons.shop.market.MarketQuote;
 
 import java.nio.file.Files;
 import org.voxelhorizons.shop.state.MarketSnapshotStore;
@@ -32,6 +34,7 @@ public final class VoxelShop extends JavaPlugin {
     private TradeJournal journal;
     private TradeCoordinator trades;
     private PriceModifiers modifiers;
+    private PermissionPriceTiers permissionTiers = new PermissionPriceTiers(java.util.List.of());
     private final ShopItemFactory itemFactory = new ShopItemFactory();
     private final ShopText shopText = new ShopText();
 
@@ -96,6 +99,8 @@ public final class VoxelShop extends JavaPlugin {
         int target = getConfig().getInt("market.target-stock", 1000);
         int capacity = getConfig().getInt("market.stock-capacity", 100000);
         ImportedCatalog imported = ShopGuiCatalogueImporter.read(source, currency, target, capacity);
+        PermissionPriceTiers parsedTiers = PermissionPriceTiers.read(
+                getConfig().getConfigurationSection("modifiers.permission-tiers"));
         // Validate dynamic pricing explicitly; never silently fall back from
         // an unsafe/malformed owner-supplied configuration.
         MarketPolicy policy = new MarketPolicy(
@@ -121,6 +126,7 @@ public final class VoxelShop extends JavaPlugin {
             worthSource = java.nio.file.Paths.get("plugins", "ShopGUIPlus", "worth.yml");
         WorthStore importedWorth = WorthStore.read(worthSource);
         this.worth = importedWorth;
+        this.permissionTiers = parsedTiers;
         this.mainMenu = parsedMenu;
         this.catalog = imported;
         this.market = created;
@@ -140,6 +146,10 @@ public final class VoxelShop extends JavaPlugin {
     public ShopMenus menus() { return menus; }
     public TradeCoordinator trades() { return trades; }
     public PriceModifiers modifiers() { return modifiers; }
+    public java.math.BigDecimal price(org.bukkit.entity.Player player, MarketQuote quote) {
+        return modifiers.total(player.getUniqueId(), quote,
+                permissionTiers.factor(player::hasPermission, quote.side()));
+    }
     public ShopItemFactory items() { return itemFactory; }
     public ShopText text() { return shopText; }
 }

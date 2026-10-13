@@ -84,20 +84,20 @@ public final class TradeCoordinator {
         }
         BigDecimal effectiveTotal;
         try {
-            effectiveTotal = plugin.modifiers().total(player.getUniqueId(), quote);
+            effectiveTotal = plugin.price(player, quote);
             // Prevent per-player discount/sell-bonus combinations that allow
             // immediate buy/sell cycling within one offer's market.
             MarketQuote other = plugin.market().quote(offer.marketId(),
                     side == MarketQuote.Side.BUY ? MarketQuote.Side.SELL : MarketQuote.Side.BUY,
                     quantity, offer.sellRatio());
-            BigDecimal opposite = plugin.modifiers().total(player.getUniqueId(), other);
+            BigDecimal opposite = plugin.price(player, other);
             BigDecimal purchase = side == MarketQuote.Side.BUY ? effectiveTotal : opposite;
             BigDecimal sale = side == MarketQuote.Side.SELL ? effectiveTotal : opposite;
             if (sale.compareTo(purchase) >= 0)
                 return "Trade rejected: price modifier would permit market arbitrage.";
         } catch (IllegalStateException missingOpposite) {
             // Opposite trade may be out of stock or at maximum market capacity.
-            try { effectiveTotal = plugin.modifiers().total(player.getUniqueId(), quote); }
+            try { effectiveTotal = plugin.price(player, quote); }
             catch (RuntimeException invalid) { return "Invalid price modifier: " + invalid.getMessage(); }
         } catch (RuntimeException invalid) {
             return "Invalid price modifier: " + invalid.getMessage();
@@ -129,7 +129,7 @@ public final class TradeCoordinator {
         }
         if (before.isCancelled()) return "Trade cancelled by another plugin.";
         if (!player.isOnline() || player.isDead() || !plugin.market().isCurrent(quote)
-                || plugin.modifiers().total(player.getUniqueId(), quote).compareTo(effectiveTotal) != 0)
+                || plugin.price(player, quote).compareTo(effectiveTotal) != 0)
             return "Trade conditions changed; reopen the shop.";
         if (side == MarketQuote.Side.BUY && !hasSpace(player, exact, quantity)
                 || side == MarketQuote.Side.SELL && count(player, exact) < quantity)
@@ -230,7 +230,7 @@ public final class TradeCoordinator {
     public TradeJournal journal() { return journal; }
 
     public BigDecimal displayPrice(Player player, MarketQuote quote) {
-        return plugin.modifiers().total(player.getUniqueId(), quote);
+        return plugin.price(player, quote);
     }
 
     private static int count(Player player, ItemStack exact) {
