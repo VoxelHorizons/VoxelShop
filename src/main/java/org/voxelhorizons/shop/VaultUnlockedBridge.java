@@ -10,8 +10,9 @@ import java.util.Optional;
 
 /**
  * Independently authored bridge. Prefer modern vault2 for named currencies.
- * Fall back to legacy Vault (Essentials coins) ONLY for the explicitly
- * configured legacy currency. Never silently route tokens/cosmetics to coins.
+ * Route an explicitly configured legacy currency (Essentials coins) to its
+ * legacy provider, even if vault2 is also present. Other currencies always
+ * use vault2. Never silently route tokens/cosmetics to coins.
  */
 public final class VaultUnlockedBridge {
     private final String pluginName;
@@ -43,6 +44,14 @@ public final class VaultUnlockedBridge {
 
     public boolean available() { return provider().isPresent() || legacyProvider().isPresent(); }
 
+    /**
+     * Explicit route: configured legacy Coins use the registered legacy Vault
+     * service even when a separate vault2 Tokens provider is also installed.
+     */
+    private boolean useLegacy(String currency) {
+        return legacyCurrency.equalsIgnoreCase(currency) && legacyProvider().isPresent();
+    }
+
     public Economy requireProvider(String currency) {
         Economy economy = provider().orElseThrow(() ->
                 new IllegalStateException("No active vault2 Economy provider registered"));
@@ -63,7 +72,7 @@ public final class VaultUnlockedBridge {
     }
 
     public BigDecimal balance(Player player, String currency) {
-        if (provider().isPresent()) {
+        if (!useLegacy(currency) && provider().isPresent()) {
             Economy economy = requireProvider(currency);
             if (!economy.accountSupportsCurrency(pluginName, player.getUniqueId(),
                     currency, player.getWorld().getName()))
@@ -76,7 +85,7 @@ public final class VaultUnlockedBridge {
     }
 
     public String format(BigDecimal amount, String currency) {
-        if (provider().isPresent()) return requireProvider(currency).format(pluginName, amount, currency);
+        if (!useLegacy(currency) && provider().isPresent()) return requireProvider(currency).format(pluginName, amount, currency);
         return requireLegacy(currency).format(requireSafeDouble(amount));
     }
 
@@ -87,7 +96,7 @@ public final class VaultUnlockedBridge {
 
     public boolean withdraw(Player player, String currency, BigDecimal amount) {
         requirePositive(amount);
-        if (provider().isPresent()) {
+        if (!useLegacy(currency) && provider().isPresent()) {
             var response = requireProvider(currency).withdraw(pluginName, player.getUniqueId(),
                     player.getWorld().getName(), currency, amount);
             return response != null && response.transactionSuccess();
@@ -99,7 +108,7 @@ public final class VaultUnlockedBridge {
 
     public boolean deposit(Player player, String currency, BigDecimal amount) {
         requirePositive(amount);
-        if (provider().isPresent()) {
+        if (!useLegacy(currency) && provider().isPresent()) {
             var response = requireProvider(currency).deposit(pluginName, player.getUniqueId(),
                     player.getWorld().getName(), currency, amount);
             return response != null && response.transactionSuccess();

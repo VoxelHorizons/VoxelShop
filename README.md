@@ -15,7 +15,7 @@ JAR.** Current development: `0.2.0-SNAPSHOT`.
 - Dynamic shared market supply/price per currency, persistent stock/revisions,
   shop-specific sell margins, and deterministic BigDecimal amounts.
 - Modern VaultUnlocked vault2 named currencies, and tightly restricted legacy
-  Vault fallback for EssentialsX Coins if no vault2 provider is registered.
+  Vault routing for EssentialsX Coins even when a separate vault2 provider is registered.
 - Write-ahead transaction records. Trades blocked while any ambiguous
   transaction awaits manual reconciliation; never replay questionable debits.
 
