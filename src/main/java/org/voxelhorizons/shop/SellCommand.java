@@ -132,8 +132,8 @@ public final class SellCommand implements CommandExecutor {
                 try {
                     MarketQuote quote = plugin.market().quote(offer.marketId(),
                             MarketQuote.Side.SELL, quantity, offer.sellRatio());
-                    if (quote.total().compareTo(best) > 0) {
-                        best = quote.total();
+                    if (plugin.trades().displayPrice(player, quote).compareTo(best) > 0) {
+                        best = plugin.trades().displayPrice(player, quote);
                         selected = new Selection(shop.id(), offer);
                     }
                 } catch (RuntimeException ignored) { /* This offer cannot accept this quantity. */ }

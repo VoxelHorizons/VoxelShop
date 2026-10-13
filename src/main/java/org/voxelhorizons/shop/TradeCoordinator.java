@@ -79,6 +79,26 @@ public final class TradeCoordinator {
         } catch (RuntimeException error) {
             return "Market quote unavailable: " + error.getMessage();
         }
+        BigDecimal effectiveTotal;
+        try {
+            effectiveTotal = plugin.modifiers().total(player.getUniqueId(), quote);
+            // Prevent per-player discount/sell-bonus combinations that allow
+            // immediate buy/sell cycling within one offer's market.
+            MarketQuote other = plugin.market().quote(offer.marketId(),
+                    side == MarketQuote.Side.BUY ? MarketQuote.Side.SELL : MarketQuote.Side.BUY,
+                    quantity, offer.sellRatio());
+            BigDecimal opposite = plugin.modifiers().total(player.getUniqueId(), other);
+            BigDecimal purchase = side == MarketQuote.Side.BUY ? effectiveTotal : opposite;
+            BigDecimal sale = side == MarketQuote.Side.SELL ? effectiveTotal : opposite;
+            if (sale.compareTo(purchase) >= 0)
+                return "Trade rejected: price modifier would permit market arbitrage.";
+        } catch (IllegalStateException missingOpposite) {
+            // Opposite trade may be out of stock or at maximum market capacity.
+            try { effectiveTotal = plugin.modifiers().total(player.getUniqueId(), quote); }
+            catch (RuntimeException invalid) { return "Invalid price modifier: " + invalid.getMessage(); }
+        } catch (RuntimeException invalid) {
+            return "Invalid price modifier: " + invalid.getMessage();
+        }
         if (side == MarketQuote.Side.BUY && !hasSpace(player, exact, quantity))
             return "Your inventory does not have enough space.";
         if (side == MarketQuote.Side.SELL && count(player, exact) < quantity)
@@ -86,7 +106,7 @@ public final class TradeCoordinator {
         if (side == MarketQuote.Side.BUY) {
             try {
                 BigDecimal balance = plugin.economy().balance(player, quote.currency());
-                if (balance == null || balance.compareTo(quote.total()) < 0)
+                if (balance == null || balance.compareTo(effectiveTotal) < 0)
                     return "Insufficient " + quote.currency() + ".";
             } catch (RuntimeException failure) {
                 return "Could not verify your balance: " + failure.getMessage();
@@ -96,11 +116,11 @@ public final class TradeCoordinator {
         TradeJournal.Entry entry = null;
         try {
             entry = journal.begin(player.getUniqueId(), player.getWorld().getName(),
-                    quote.marketId(), side.name(), quantity, quote.currency(), quote.total());
+                    quote.marketId(), side.name(), quantity, quote.currency(), effectiveTotal);
             if (side == MarketQuote.Side.BUY) {
                 // Anything after this stage may have mutated an external wallet.
                 entry.stage("DEBIT_IN_PROGRESS");
-                boolean accepted = plugin.economy().withdraw(player, quote.currency(), quote.total());
+                boolean accepted = plugin.economy().withdraw(player, quote.currency(), effectiveTotal);
                 if (!accepted)
                     throw new IllegalStateException("Economy debit failed or returned an ambiguous result");
                 entry.stage("DEBIT_CONFIRMED");
@@ -121,7 +141,7 @@ public final class TradeCoordinator {
                 player.saveData();
                 entry.stage("ITEMS_REMOVED_AND_SAVED");
                 entry.stage("CREDIT_IN_PROGRESS");
-                boolean accepted = plugin.economy().deposit(player, quote.currency(), quote.total());
+                boolean accepted = plugin.economy().deposit(player, quote.currency(), effectiveTotal);
                 if (!accepted)
                     throw new IllegalStateException("Economy credit failed or returned an ambiguous result");
                 entry.stage("CREDIT_CONFIRMED");
@@ -131,7 +151,7 @@ public final class TradeCoordinator {
             }
             entry.finish();
             return (side == MarketQuote.Side.BUY ? "Purchased " : "Sold ") + quantity + " "
-                    + material.name() + " for " + quote.total().toPlainString() + " " + quote.currency() + ".";
+                    + material.name() + " for " + effectiveTotal.toPlainString() + " " + quote.currency() + ".";
         } catch (Exception exception) {
             plugin.getLogger().severe("TRADE HALTED. Unresolved transaction "
                     + (entry == null ? "(journal write failed)" : entry.id()) + ": " + exception);
@@ -141,6 +161,10 @@ public final class TradeCoordinator {
     }
 
     public TradeJournal journal() { return journal; }
+
+    public BigDecimal displayPrice(Player player, MarketQuote quote) {
+        return plugin.modifiers().total(player.getUniqueId(), quote);
+    }
 
     private static int count(Player player, ItemStack exact) {
         int total = 0;

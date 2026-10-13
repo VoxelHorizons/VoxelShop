@@ -112,12 +112,12 @@ public final class ShopMenus implements Listener {
             try {
                 if (offer.canBuy()) {
                     MarketQuote buy = plugin.market().quote(offer.marketId(), MarketQuote.Side.BUY, offer.quantity());
-                    lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + buy.total().toPlainString()
+                    lore.add(ChatColor.GRAY + "Live buy: " + ChatColor.YELLOW + plugin.trades().displayPrice(player, buy).toPlainString()
                             + " " + buy.currency());
                 }
                 if (offer.canSell()) {
                     MarketQuote sell = plugin.market().quote(offer.marketId(), MarketQuote.Side.SELL, offer.quantity(), offer.sellRatio());
-                    lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + sell.total().toPlainString()
+                    lore.add(ChatColor.GRAY + "Live sell: " + ChatColor.YELLOW + plugin.trades().displayPrice(player, sell).toPlainString()
                             + " " + sell.currency());
                 }
             } catch (RuntimeException exception) {
@@ -179,7 +179,7 @@ public final class ShopMenus implements Listener {
             List<String> lore = new ArrayList<>();
             try {
                 MarketQuote quote = plugin.market().quote(offer.marketId(), side, q, offer.sellRatio());
-                lore.add(ChatColor.GRAY + "Total: " + ChatColor.GOLD + quote.total().toPlainString()
+                lore.add(ChatColor.GRAY + "Total: " + ChatColor.GOLD + plugin.trades().displayPrice(player, quote).toPlainString()
                         + " " + quote.currency());
                 holder.amountClicks.put(slots[i], q);
             } catch (RuntimeException unavailable) {

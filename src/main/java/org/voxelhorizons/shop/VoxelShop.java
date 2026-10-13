@@ -8,6 +8,7 @@ import org.voxelhorizons.shop.catalog.ShopGuiCatalogueImporter;
 import org.voxelhorizons.shop.market.MarketDefinition;
 import org.voxelhorizons.shop.market.MarketEngine;
 import org.voxelhorizons.shop.market.MarketPolicy;
+import org.voxelhorizons.shop.market.PriceModifiers;
 
 import java.nio.file.Files;
 import org.voxelhorizons.shop.state.MarketSnapshotStore;
@@ -24,6 +25,7 @@ public final class VoxelShop extends JavaPlugin {
     private MarketSnapshotStore snapshots;
     private TradeJournal journal;
     private TradeCoordinator trades;
+    private PriceModifiers modifiers;
     private final ShopItemFactory itemFactory = new ShopItemFactory();
 
     @Override public void onEnable() {
@@ -33,6 +35,7 @@ public final class VoxelShop extends JavaPlugin {
         try {
             snapshots = new MarketSnapshotStore(getDataFolder().toPath().resolve("market-state.properties"));
             journal = new TradeJournal(getDataFolder().toPath().resolve("journal"));
+            modifiers = new PriceModifiers(getDataFolder().toPath().resolve("modifiers.properties"));
             loadCatalog();
             trades = new TradeCoordinator(this, journal, snapshots);
         } catch (Exception exception) {
@@ -99,5 +102,6 @@ public final class VoxelShop extends JavaPlugin {
     public VaultUnlockedBridge economy() { return economy; }
     public ShopMenus menus() { return menus; }
     public TradeCoordinator trades() { return trades; }
+    public PriceModifiers modifiers() { return modifiers; }
     public ShopItemFactory items() { return itemFactory; }
 }
