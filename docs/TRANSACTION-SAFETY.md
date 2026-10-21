@@ -6,7 +6,7 @@ bundle the licensed JAR, textures, or other proprietary assets.
 ## Defaults and dependencies
 
 - Transactions are **off** unless `trading.enabled: true` is set.
-- Paper 26.2 and Java 25 are targeted by this build. Folia is unsupported.
+- Paper 26.2 and 26.3 with Java 25 are targeted by this build. Folia is unsupported.
 - Prefer VaultUnlocked `vault2` for named currencies. For EssentialsX Coins
   alongside vault2, the legacy Vault service is used for the explicitly
   configured `economy.legacy-currency` (default `coins`), including when a

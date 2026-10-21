@@ -1,4 +1,4 @@
-# VoxelShop 0.3.0 — Paper 26.2 staging acceptance
+# VoxelShop 0.3.0 — Paper 26.3 staging acceptance
 
 **DO NOT enable live player trading on production solely because Maven/JUnit
 or the Paper plugin metadata checks pass.** This checklist must be executed
@@ -12,7 +12,7 @@ economy provider, LuckPerms, PlaceholderAPI, and user-authored YAML.
 2. Stop the server. Avoid competing `/shop` registrations: remove ShopGUIPlus
    from the staging plugins folder after saving your original config.
 3. Install the new VoxelShop 0.3.0 JAR from the successful PR build artifact.
-4. Keep `trading.enabled: false` initially and launch Paper 26.2 / Java 25.
+4. Keep `trading.enabled: false` initially and launch Paper 26.3 / Java 25.
 5. Check `/vshop check`, `/vshop pending`, `/vshop worth DIAMOND 2`,
    shop menu categories and page changes. Validate `:offset_-8:`, custom UI
    placeholders and item name/lore. Verify original shop categories have

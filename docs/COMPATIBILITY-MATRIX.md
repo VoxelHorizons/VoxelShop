@@ -33,7 +33,7 @@ independent implementation with its own API and design.
 
 ## Required production acceptance
 
-1. Build with Java 25 for Paper 26.2. Never enable production trades just
+1. Build with Java 25 for Paper 26.3 (CI also verifies Paper 26.2). Never enable production trades just
    because CI compiles; `trading.enabled` defaults to `false`.
 2. Test every configured shop and command on a staging copy of the exact
    server plugins, economy wallets and resource pack.

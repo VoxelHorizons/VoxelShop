@@ -1,7 +1,7 @@
 name: VoxelShop
 version: 0.3.0-SNAPSHOT
 main: org.voxelhorizons.shop.VoxelShop
-api-version: '26.2'
+api-version: '${minecraft.version}'
 description: Independent multi-currency dynamic shop for VoxelHorizons
 softdepend: [Vault, PlaceholderAPI, VoxelCore]
 commands:
