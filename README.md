@@ -1,6 +1,6 @@
 # VoxelShop
 
-Independent Paper 26.2 shop, YAML importer and dynamic stock-pricing project for
+Independent Paper 26.2 and 26.3 shop, YAML importer and dynamic stock-pricing project for
 VoxelHorizons. **Not a fork or redistributable copy of the licensed ShopGUIPlus
 JAR.** Current development: `0.3.0-SNAPSHOT`.
 
@@ -77,7 +77,7 @@ economy and authored configs. `trading.enabled` stays **false** by default.
 
 ## Install for staging
 
-1. Use **Paper 26.2 / Java 25** and a working compatible Vault economy provider.
+1. Use **Paper 26.3 / Java 25** (CI also builds Paper 26.2) and a working compatible Vault economy provider.
 2. **Do not run ShopGUIPlus and VoxelShop simultaneously with conflicting /shop
    commands.** Back up your server and shop configs.
 3. Put the shaded JAR from GitHub Actions in `plugins/`.
@@ -124,4 +124,4 @@ the public repository.
 - `.github/workflows/build.yml`: JUnit + Maven shade build and downloadable JAR
 
 Run `mvn clean verify` with Java 25. Market/restart/journal unit tests are
-included, but **live fault-injection** on Paper 26.2 remains required.
+included, but **live fault-injection** on Paper 26.3 remains required.

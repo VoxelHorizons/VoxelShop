@@ -8,6 +8,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '26.2'
+            paper_api: '26.2.build.123-stable'
+          - minecraft: '26.3'
+            paper_api: '26.3.build.209-stable'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -16,16 +24,16 @@ jobs:
           java-version: '25'
           cache: maven
       - name: Compile and run tests
-        run: mvn --batch-mode --no-transfer-progress clean verify
-      - name: Verify Paper 26.2 plugin metadata
+        run: mvn --batch-mode --no-transfer-progress clean verify -Dminecraft.version="${{ matrix.minecraft }}" -Dpaper.api.version="${{ matrix.paper_api }}"
+      - name: Verify Paper plugin metadata
         run: |
           set -euo pipefail
-          jar_file=$(compgen -G 'target/VoxelShop-*-mc26.2.jar' | head -n 1)
+          jar_file=$(compgen -G 'target/VoxelShop-*-mc${{ matrix.minecraft }}.jar' | head -n 1)
           test -n "$jar_file"
-          unzip -p "$jar_file" plugin.yml | grep -Fx "api-version: '26.2'"
+          unzip -p "$jar_file" plugin.yml | grep -Fx "api-version: '${{ matrix.minecraft }}'"
           unzip -l "$jar_file" 'org/voxelhorizons/shop/VoxelShop.class' | grep 'VoxelShop.class'
       - name: Upload server plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoxelShop-mc26.2
-          path: target/VoxelShop-*-mc26.2.jar
+          name: VoxelShop-mc${{ matrix.minecraft }}
+          path: target/VoxelShop-*-mc${{ matrix.minecraft }}.jar
